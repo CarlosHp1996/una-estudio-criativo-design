@@ -1,0 +1,158 @@
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import ProductCard from "@/components/ProductCard";
+import { products } from "@/data/products";
+import { Star } from "lucide-react";
+import heroImage from "@/assets/hero-image.jpg";
+import aboutStudio from "@/assets/about-studio.jpg";
+
+const Home = () => {
+  const featuredProducts = products.slice(0, 3);
+
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${heroImage})` }}
+        >
+          <div className="absolute inset-0 bg-background/40"></div>
+        </div>
+        <div className="relative z-10 text-center px-4 max-w-3xl mx-auto">
+          <h1 className="text-5xl md:text-6xl font-serif font-bold text-foreground mb-6">
+            Arte feita à mão com amor
+          </h1>
+          <p className="text-xl text-foreground/90 mb-8">
+            Peças únicas e exclusivas para transformar seus ambientes
+          </p>
+          <Button asChild size="lg" className="text-lg px-8">
+            <Link to="/produtos">Ver Coleção</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Featured Products */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
+            Produtos em Destaque
+          </h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Descubra nossas criações mais especiais, cada uma pintada à mão com dedicação e carinho
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {featuredProducts.map((product) => (
+            <ProductCard key={product.id} {...product} />
+          ))}
+        </div>
+        <div className="text-center">
+          <Button asChild variant="outline" size="lg">
+            <Link to="/produtos">Ver Todos os Produtos</Link>
+          </Button>
+        </div>
+      </section>
+
+      {/* Collections */}
+      <section className="bg-muted py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
+              Nossas Coleções
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Explore nossas categorias de produtos artesanais
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {["Placas", "Pratos", "Copos", "Personalizados"].map((category) => (
+              <Link
+                key={category}
+                to={`/produtos?categoria=${category.toLowerCase()}`}
+                className="group"
+              >
+                <Card className="overflow-hidden hover:shadow-elegant transition-smooth">
+                  <CardContent className="p-8 text-center">
+                    <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-smooth">
+                      {category}
+                    </h3>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* About Section */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div>
+            <img
+              src={aboutStudio}
+              alt="Estúdio UNA"
+              className="rounded-lg shadow-elegant w-full h-[400px] object-cover"
+            />
+          </div>
+          <div>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-6">
+              Sobre o Estúdio
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              No UNA Estudio Criativo, cada peça é criada com amor e dedicação. Acreditamos que a arte feita à mão traz um toque especial e único para sua casa.
+            </p>
+            <p className="text-muted-foreground mb-6">
+              Trabalhamos com pintura em madeira, cerâmica e vidro, sempre buscando transmitir delicadeza e elegância em cada traço.
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/sobre">Conheça Nossa História</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="bg-muted py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
+              O Que Dizem Nossos Clientes
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                name: "Maria Silva",
+                text: "As peças são simplesmente lindas! A qualidade da pintura é impecável e o acabamento perfeito.",
+              },
+              {
+                name: "João Santos",
+                text: "Comprei uma placa personalizada e ficou incrível. Recomendo muito!",
+              },
+              {
+                name: "Ana Costa",
+                text: "Adorei o atendimento e a dedicação. Minhas peças chegaram com muito carinho.",
+              },
+            ].map((testimonial, index) => (
+              <Card key={index}>
+                <CardContent className="p-6">
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-primary text-primary" />
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground mb-4">{testimonial.text}</p>
+                  <p className="font-semibold text-foreground">{testimonial.name}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default Home;
