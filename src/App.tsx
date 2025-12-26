@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { GuestRoute } from "@/components/ProtectedRoute";
 import MainLayout from "@/layouts/MainLayout";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
@@ -15,6 +16,8 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,9 +31,39 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Auth Routes (no layout) */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/registro" element={<Register />} />
+              {/* Guest-only Routes (redirect if authenticated) */}
+              <Route
+                path="/login"
+                element={
+                  <GuestRoute>
+                    <Login />
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/registro"
+                element={
+                  <GuestRoute>
+                    <Register />
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/esqueci-senha"
+                element={
+                  <GuestRoute>
+                    <ForgotPassword />
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/reset-senha"
+                element={
+                  <GuestRoute>
+                    <ResetPassword />
+                  </GuestRoute>
+                }
+              />
 
               {/* Main App Routes (with layout) */}
               <Route element={<MainLayout />}>
