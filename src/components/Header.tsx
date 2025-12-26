@@ -3,6 +3,7 @@ import { ShoppingCart, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
+import UserMenu from "./UserMenu";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -14,30 +15,53 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="text-2xl md:text-3xl font-serif font-bold text-primary">
+          <Link
+            to="/"
+            className="flex items-center gap-2 min-w-0 flex-shrink-0"
+          >
+            <div className="text-xl md:text-2xl font-serif font-bold text-primary">
               UNA <span className="font-light">Estudio Criativo</span>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-foreground hover:text-primary transition-smooth">
-              Início
-            </Link>
-            <Link to="/produtos" className="text-foreground hover:text-primary transition-smooth">
-              Produtos
-            </Link>
-            <Link to="/sobre" className="text-foreground hover:text-primary transition-smooth">
-              Sobre
-            </Link>
-            <Link to="/contato" className="text-foreground hover:text-primary transition-smooth">
-              Contato
-            </Link>
+          {/* Desktop Navigation - Centered */}
+          <nav className="hidden md:flex items-center justify-center flex-1 mx-8">
+            <div className="flex items-center gap-8">
+              <Link
+                to="/"
+                className="text-foreground hover:text-primary transition-smooth"
+              >
+                Início
+              </Link>
+              <Link
+                to="/produtos"
+                className="text-foreground hover:text-primary transition-smooth"
+              >
+                Produtos
+              </Link>
+              <Link
+                to="/sobre"
+                className="text-foreground hover:text-primary transition-smooth"
+              >
+                Sobre
+              </Link>
+              <Link
+                to="/contato"
+                className="text-foreground hover:text-primary transition-smooth"
+              >
+                Contato
+              </Link>
+            </div>
           </nav>
 
-          {/* Cart & Mobile Menu Toggle */}
-          <div className="flex items-center gap-4">
+          {/* User Menu & Cart - Right Side */}
+          <div className="flex items-center gap-2">
+            {/* User Menu - Hidden on Mobile */}
+            <div className="hidden md:block">
+              <UserMenu />
+            </div>
+
+            {/* Cart */}
             <Link to="/carrinho">
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
@@ -49,13 +73,18 @@ const Header = () => {
               </Button>
             </Link>
 
+            {/* Mobile Menu Toggle */}
             <Button
               variant="ghost"
               size="icon"
               className="md:hidden"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {isMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </div>
@@ -91,6 +120,26 @@ const Header = () => {
             >
               Contato
             </Link>
+
+            {/* Mobile User Menu */}
+            <div className="pt-2 border-t border-border">
+              <div className="flex flex-col gap-2">
+                <Link
+                  to="/login"
+                  className="text-foreground hover:text-primary transition-smooth"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Fazer Login
+                </Link>
+                <Link
+                  to="/registro"
+                  className="text-foreground hover:text-primary transition-smooth"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Criar Conta
+                </Link>
+              </div>
+            </div>
           </nav>
         )}
       </div>
