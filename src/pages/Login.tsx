@@ -120,6 +120,20 @@ export default function Login() {
             </CardDescription>
           </CardHeader>
 
+          {/* Demo Banner */}
+          <div className="mx-6 mb-4">
+            <Alert className="bg-green-50 border-green-200">
+              <AlertDescription className="text-green-800">
+                <strong>🎯 Demonstração:</strong> Use{" "}
+                <code className="bg-green-100 px-1 rounded">
+                  demo@unaestudio.com
+                </code>{" "}
+                e <code className="bg-green-100 px-1 rounded">demo123</code>{" "}
+                para testar todas as funcionalidades!
+              </AlertDescription>
+            </Alert>
+          </div>
+
           <form onSubmit={handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
               {/* Error Alert */}

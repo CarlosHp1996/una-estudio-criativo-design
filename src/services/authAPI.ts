@@ -15,6 +15,38 @@ export class AuthAPI {
   // POST /api/Auth/login
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
+      // Check for demo credentials first (for local testing)
+      if (
+        credentials.email === "demo@unaestudio.com" &&
+        credentials.password === "demo123"
+      ) {
+        // Return mock successful response for demo
+        const mockResponse: AuthResponse = {
+          success: true,
+          token: "demo_jwt_token_" + Date.now(),
+          user: {
+            id: "demo-user-123",
+            name: "Maria Silva Demo",
+            email: "demo@unaestudio.com",
+            phone: "(11) 99999-9999",
+            avatar: "",
+            address: "Rua das Flores, 123",
+            city: "São Paulo",
+            state: "SP",
+            zipCode: "01234-567",
+            bio: "Usuária de demonstração da UNA Estudio Criativo. Apaixonada por moda e estilo!",
+            role: "customer",
+            createdAt: "2024-01-15T10:00:00Z",
+            updatedAt: new Date().toISOString(),
+          },
+          message: "Login realizado com sucesso!",
+        };
+
+        // Store token for demo
+        apiClient.setAuthToken(mockResponse.token!);
+        return mockResponse;
+      }
+
       const response = await apiClient.post<AuthResponse>("/Auth/login", {
         email: credentials.email,
         password: credentials.password,
@@ -84,6 +116,29 @@ export class AuthAPI {
   // PUT /api/Auth/update
   static async updateProfile(data: UpdateProfileRequest): Promise<User> {
     try {
+      // Check if using demo token
+      const token = apiClient.getAuthToken();
+      if (token && token.startsWith("demo_jwt_token_")) {
+        // Return updated mock user for demo
+        const mockUpdatedUser: User = {
+          id: "demo-user-123",
+          name: data.name || "Maria Silva Demo",
+          email: data.email || "demo@unaestudio.com",
+          phone: data.phone || "(11) 99999-9999",
+          avatar: "",
+          address: data.address || "Rua das Flores, 123",
+          city: "São Paulo",
+          state: "SP",
+          zipCode: "01234-567",
+          bio: "Usuária de demonstração da UNA Estudio Criativo. Perfil atualizado!",
+          role: "customer",
+          createdAt: "2024-01-15T10:00:00Z",
+          updatedAt: new Date().toISOString(),
+        };
+
+        return mockUpdatedUser;
+      }
+
       const response = await apiClient.put<ApiResponse<User>>(
         "/Auth/update",
         data
@@ -144,6 +199,14 @@ export class AuthAPI {
   // Change password (for authenticated users)
   static async changePassword(data: ChangePasswordRequest): Promise<void> {
     try {
+      // Check if using demo token
+      const token = apiClient.getAuthToken();
+      if (token && token.startsWith("demo_jwt_token_")) {
+        // Simulate password change for demo (always successful)
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API delay
+        return;
+      }
+
       const response = await apiClient.put<ApiResponse>("/Auth/update", {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,

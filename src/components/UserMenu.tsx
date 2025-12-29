@@ -88,28 +88,35 @@ const UserMenu = () => {
             <DropdownMenuSeparator />
 
             <DropdownMenuItem asChild>
-              <Link to="/perfil" className="cursor-pointer">
+              <Link to="/dashboard" className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem asChild>
+              <Link to="/dashboard/perfil" className="cursor-pointer">
                 <User className="mr-2 h-4 w-4" />
                 Meu Perfil
               </Link>
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild>
-              <Link to="/meus-pedidos" className="cursor-pointer">
+              <Link to="/dashboard/pedidos" className="cursor-pointer">
                 <Package className="mr-2 h-4 w-4" />
                 Meus Pedidos
               </Link>
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild>
-              <Link to="/favoritos" className="cursor-pointer">
+              <Link to="/dashboard/favoritos" className="cursor-pointer">
                 <Heart className="mr-2 h-4 w-4" />
                 Favoritos
               </Link>
             </DropdownMenuItem>
 
             <DropdownMenuItem asChild>
-              <Link to="/configuracoes" className="cursor-pointer">
+              <Link to="/dashboard/seguranca" className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Configurações
               </Link>

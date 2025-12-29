@@ -5,6 +5,11 @@ export interface User {
   email: string;
   phone?: string;
   avatar?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  bio?: string;
   role?: string;
   createdAt?: string;
   updatedAt?: string;

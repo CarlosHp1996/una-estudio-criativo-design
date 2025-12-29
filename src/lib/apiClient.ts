@@ -48,6 +48,10 @@ export class ApiClient {
     return this.token;
   }
 
+  isDemoMode(): boolean {
+    return this.token !== null && this.token.startsWith("demo_jwt_token_");
+  }
+
   isAuthenticated(): boolean {
     return !!this.token;
   }
