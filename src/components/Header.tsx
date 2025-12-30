@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ShoppingCart, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -8,7 +8,33 @@ import UserMenu from "./UserMenu";
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { items } = useCart();
+  const location = useLocation();
   const cartItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const isHomePage = location.pathname === "/";
+
+  const scrollToSection = (sectionId: string) => {
+    if (isHomePage) {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        const headerOffset = 80; // altura do header
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition =
+          elementPosition + window.pageYOffset - headerOffset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth",
+        });
+      }
+    }
+  };
+
+  const handleNavClick = (to: string, sectionId?: string) => {
+    setIsMenuOpen(false);
+    if (sectionId && isHomePage) {
+      scrollToSection(sectionId);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border">
@@ -27,30 +53,61 @@ const Header = () => {
           {/* Desktop Navigation - Centered */}
           <nav className="hidden md:flex items-center justify-center flex-1 mx-8">
             <div className="flex items-center gap-8">
-              <Link
-                to="/"
-                className="text-foreground hover:text-primary transition-smooth"
-              >
-                Início
-              </Link>
-              <Link
-                to="/produtos"
-                className="text-foreground hover:text-primary transition-smooth"
-              >
-                Produtos
-              </Link>
-              <Link
-                to="/sobre"
-                className="text-foreground hover:text-primary transition-smooth"
-              >
-                Sobre
-              </Link>
-              <Link
-                to="/contato"
-                className="text-foreground hover:text-primary transition-smooth"
-              >
-                Contato
-              </Link>
+              {isHomePage ? (
+                <>
+                  <button
+                    onClick={() => scrollToSection("inicio")}
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Início
+                  </button>
+                  <button
+                    onClick={() => scrollToSection("produtos")}
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Produtos
+                  </button>
+                  <button
+                    onClick={() => scrollToSection("sobre")}
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Sobre
+                  </button>
+                  <Link
+                    to="/contato"
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Contato
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/"
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Início
+                  </Link>
+                  <Link
+                    to="/produtos"
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Produtos
+                  </Link>
+                  <Link
+                    to="/sobre"
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Sobre
+                  </Link>
+                  <Link
+                    to="/contato"
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Contato
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
 
@@ -90,8 +147,12 @@ const Header = () => {
         </div>
 
         {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <nav className="md:hidden py-4 flex flex-col gap-4 border-t border-border">
+        <div
+          className={`md:hidden transition-all duration-300 ease-in-out overflow-hidden ${
+            isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <nav className="py-4 flex flex-col gap-4 border-t border-border">
             <Link
               to="/"
               className="text-foreground hover:text-primary transition-smooth"
@@ -141,7 +202,7 @@ const Header = () => {
               </div>
             </div>
           </nav>
-        )}
+        </div>
       </div>
     </header>
   );

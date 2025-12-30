@@ -13,7 +13,10 @@ const Home = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
+      <section
+        id="inicio"
+        className="relative h-[600px] flex items-center justify-center overflow-hidden"
+      >
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${heroImage})` }}
@@ -27,20 +30,25 @@ const Home = () => {
           <p className="text-xl text-foreground/90 mb-8">
             Peças únicas e exclusivas para transformar seus ambientes
           </p>
-          <Button asChild size="lg" className="text-lg px-8">
+          <Button
+            asChild
+            size="lg"
+            className="text-lg px-8 button-pulse hover-lift transition-all duration-300 hover:scale-105 hover:shadow-lg"
+          >
             <Link to="/produtos">Ver Coleção</Link>
           </Button>
         </div>
       </section>
 
       {/* Featured Products */}
-      <section className="container mx-auto px-4 py-20">
+      <section id="produtos" className="container mx-auto px-4 py-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
             Produtos em Destaque
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Descubra nossas criações mais especiais, cada uma pintada à mão com dedicação e carinho
+            Descubra nossas criações mais especiais, cada uma pintada à mão com
+            dedicação e carinho
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -49,7 +57,12 @@ const Home = () => {
           ))}
         </div>
         <div className="text-center">
-          <Button asChild variant="outline" size="lg">
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="hover-lift transition-all duration-300 hover:scale-105"
+          >
             <Link to="/produtos">Ver Todos os Produtos</Link>
           </Button>
         </div>
@@ -67,27 +80,30 @@ const Home = () => {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {["Placas", "Pratos", "Copos", "Personalizados"].map((category) => (
-              <Link
-                key={category}
-                to={`/produtos?categoria=${category.toLowerCase()}`}
-                className="group"
-              >
-                <Card className="overflow-hidden hover:shadow-elegant transition-smooth">
-                  <CardContent className="p-8 text-center">
-                    <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-smooth">
-                      {category}
-                    </h3>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+            {["Placas", "Pratos", "Copos", "Personalizados"].map(
+              (category, index) => (
+                <Link
+                  key={category}
+                  to={`/produtos?categoria=${category.toLowerCase()}`}
+                  className="group hover-lift"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <Card className="overflow-hidden hover:shadow-elegant transition-all duration-500 hover:scale-105 animate-fade-in">
+                    <CardContent className="p-8 text-center">
+                      <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-all duration-300">
+                        {category}
+                      </h3>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            )}
           </div>
         </div>
       </section>
 
       {/* About Section */}
-      <section className="container mx-auto px-4 py-20">
+      <section id="sobre" className="container mx-auto px-4 py-20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div>
             <img
@@ -101,12 +117,19 @@ const Home = () => {
               Sobre o Estúdio
             </h2>
             <p className="text-muted-foreground mb-4">
-              No UNA Estudio Criativo, cada peça é criada com amor e dedicação. Acreditamos que a arte feita à mão traz um toque especial e único para sua casa.
+              No UNA Estudio Criativo, cada peça é criada com amor e dedicação.
+              Acreditamos que a arte feita à mão traz um toque especial e único
+              para sua casa.
             </p>
             <p className="text-muted-foreground mb-6">
-              Trabalhamos com pintura em madeira, cerâmica e vidro, sempre buscando transmitir delicadeza e elegância em cada traço.
+              Trabalhamos com pintura em madeira, cerâmica e vidro, sempre
+              buscando transmitir delicadeza e elegância em cada traço.
             </p>
-            <Button asChild variant="outline">
+            <Button
+              asChild
+              variant="outline"
+              className="hover-lift transition-all duration-300 hover:scale-105"
+            >
               <Link to="/sobre">Conheça Nossa História</Link>
             </Button>
           </div>
@@ -114,7 +137,7 @@ const Home = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="bg-muted py-20">
+      <section id="depoimentos" className="bg-muted py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
@@ -136,15 +159,26 @@ const Home = () => {
                 text: "Adorei o atendimento e a dedicação. Minhas peças chegaram com muito carinho.",
               },
             ].map((testimonial, index) => (
-              <Card key={index}>
+              <Card
+                key={index}
+                className="hover-lift transition-all duration-300 hover:shadow-lg animate-fade-in"
+                style={{ animationDelay: `${index * 0.2}s` }}
+              >
                 <CardContent className="p-6">
                   <div className="flex gap-1 mb-4">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-primary text-primary" />
+                      <Star
+                        key={i}
+                        className="w-5 h-5 fill-primary text-primary"
+                      />
                     ))}
                   </div>
-                  <p className="text-muted-foreground mb-4">{testimonial.text}</p>
-                  <p className="font-semibold text-foreground">{testimonial.name}</p>
+                  <p className="text-muted-foreground mb-4">
+                    {testimonial.text}
+                  </p>
+                  <p className="font-semibold text-foreground">
+                    {testimonial.name}
+                  </p>
                 </CardContent>
               </Card>
             ))}

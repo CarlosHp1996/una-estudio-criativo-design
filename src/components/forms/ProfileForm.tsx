@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingSpinner } from "@/components/ui/spinner";
 import { Upload, Loader2, User, Save } from "lucide-react";
 
 const profileFormSchema = z.object({
