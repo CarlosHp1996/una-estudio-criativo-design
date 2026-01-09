@@ -23,11 +23,15 @@ import { toast } from "@/hooks/use-toast";
 // Form validation schema
 const registerSchema = z
   .object({
-    name: z
+    userName: z
       .string()
-      .min(1, "Nome é obrigatório")
-      .min(2, "Nome deve ter pelo menos 2 caracteres")
-      .max(50, "Nome deve ter no máximo 50 caracteres"),
+      .min(1, "Nome de usuário é obrigatório")
+      .min(3, "Nome de usuário deve ter pelo menos 3 caracteres")
+      .max(30, "Nome de usuário deve ter no máximo 30 caracteres")
+      .regex(
+        /^[a-zA-Z0-9_]+$/,
+        "Nome de usuário deve conter apenas letras, números e underscore"
+      ),
     email: z
       .string()
       .min(1, "Email é obrigatório")
@@ -40,6 +44,12 @@ const registerSchema = z
       .regex(/[a-z]/, "Senha deve conter pelo menos 1 letra minúscula")
       .regex(/[0-9]/, "Senha deve conter pelo menos 1 número"),
     confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
+    cpf: z
+      .string()
+      .min(1, "CPF é obrigatório")
+      .min(11, "CPF deve ter 11 dígitos")
+      .max(14, "CPF inválido")
+      .regex(/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/, "Formato de CPF inválido"),
     acceptTerms: z
       .boolean()
       .refine((val) => val === true, "Você deve aceitar os termos de uso"),
@@ -113,12 +123,12 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await registerUser({
-        name: data.name,
+      await register({
+        userName: data.userName,
         email: data.email,
         password: data.password,
         confirmPassword: data.confirmPassword,
-        acceptTerms: data.acceptTerms,
+        cpf: data.cpf.replace(/\D/g, ""), // Remove formatting from CPF
       });
 
       toast({
@@ -128,7 +138,7 @@ export default function Register() {
 
       // Navigation will be handled by the useEffect above
     } catch (error) {
-      // Error is already handled by the AuthContext
+      // Error is already handled by the AuthContext and error handling utilities
       console.error("Register error:", error);
     }
   };

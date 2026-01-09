@@ -1,9 +1,8 @@
 import { useContext } from "react";
 import { AuthContext } from "@/contexts/AuthContext";
-import type { AuthContextType } from "@/types/auth";
 
 // Main auth hook
-export function useAuth(): AuthContextType {
+export function useAuth() {
   const context = useContext(AuthContext);
 
   if (context === undefined) {
@@ -20,10 +19,15 @@ export function useAuthRole() {
   const { user } = useAuth();
 
   return {
-    isAdmin: user?.role === "admin",
-    isModerator: user?.role === "moderator" || user?.role === "admin",
+    isAdmin: user?.roles?.includes("admin") || user?.roles?.includes("Admin"),
+    isModerator:
+      user?.roles?.includes("moderator") ||
+      user?.roles?.includes("Moderator") ||
+      user?.roles?.includes("admin") ||
+      user?.roles?.includes("Admin"),
     isUser: !!user,
-    role: user?.role || null,
+    roles: user?.roles || [],
+    hasRole: (role: string) => user?.roles?.includes(role) || false,
   };
 }
 

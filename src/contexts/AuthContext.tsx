@@ -5,17 +5,37 @@ import type {
   RegisterRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
-  ResetPasswordRequest,
-  AuthContextType,
-} from "@/types/auth";
-import { AUTH_STORAGE_KEYS } from "@/types/auth";
-import { AuthAPI } from "@/services/authAPI";
-import { apiClient } from "@/lib/apiClient";
+  SocialAuthRequest,
+  SocialUser,
+} from "@/types/api";
+import AuthService from "@/services/authService";
+import { useErrorHandler } from "@/lib/errorHandling";
+
+// Auth Context Type
+interface AuthContextType {
+  // State
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  login: (credentials: LoginRequest) => Promise<void>;
+  register: (userData: RegisterRequest) => Promise<void>;
+  socialLogin: (
+    provider: "google" | "facebook",
+    socialUser: SocialUser
+  ) => Promise<void>;
+  logout: () => Promise<void>;
+  updateProfile: (data: UpdateProfileRequest) => Promise<void>;
+  changePassword: (data: ChangePasswordRequest) => Promise<void>;
+  refreshUser: () => Promise<void>;
+  clearError: () => void;
+}
 
 // Auth State Type
 interface AuthState {
   user: User | null;
-  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -24,7 +44,7 @@ interface AuthState {
 // Auth Actions
 type AuthAction =
   | { type: "AUTH_START" }
-  | { type: "AUTH_SUCCESS"; payload: { user: User; token: string } }
+  | { type: "AUTH_SUCCESS"; payload: { user: User } }
   | { type: "AUTH_FAILURE"; payload: { error: string } }
   | { type: "AUTH_LOGOUT" }
   | { type: "UPDATE_USER"; payload: { user: User } }
@@ -34,7 +54,6 @@ type AuthAction =
 // Initial state
 const initialState: AuthState = {
   user: null,
-  token: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
@@ -54,7 +73,6 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       return {
         ...state,
         user: action.payload.user,
-        token: action.payload.token,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -64,7 +82,6 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       return {
         ...state,
         user: null,
-        token: null,
         isAuthenticated: false,
         isLoading: false,
         error: action.payload.error,
@@ -74,7 +91,6 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       return {
         ...state,
         user: null,
-        token: null,
         isAuthenticated: false,
         isLoading: false,
         error: null,
@@ -114,92 +130,69 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const { handleError } = useErrorHandler();
 
   // Load stored auth data on init
   useEffect(() => {
-    const loadStoredAuth = async () => {
+    const initializeAuth = async () => {
+      dispatch({ type: "SET_LOADING", payload: { loading: true } });
+
       try {
-        const token = localStorage.getItem(AUTH_STORAGE_KEYS.TOKEN);
-        const userData = localStorage.getItem(AUTH_STORAGE_KEYS.USER);
+        // Check if user is authenticated and validate session
+        if (AuthService.isAuthenticated()) {
+          const user = AuthService.getCurrentUser();
 
-        if (token && userData) {
-          const user = JSON.parse(userData);
-
-          // Set token in API client
-          apiClient.setAuthToken(token);
-
-          // Dispatch success action
-          dispatch({
-            type: "AUTH_SUCCESS",
-            payload: { user, token },
-          });
-
-          // Verify token validity in background
-          try {
-            const updatedUser = await AuthAPI.refreshCurrentUser();
+          if (user) {
             dispatch({
-              type: "UPDATE_USER",
-              payload: { user: updatedUser },
+              type: "AUTH_SUCCESS",
+              payload: { user },
             });
-          } catch (error) {
-            // Token invalid, logout
-            clearAuthData();
-            dispatch({ type: "AUTH_LOGOUT" });
+
+            // Validate session in background and refresh user data
+            AuthService.validateSession().then((isValid) => {
+              if (!isValid) {
+                dispatch({ type: "AUTH_LOGOUT" });
+              } else {
+                // Refresh user data
+                AuthService.refreshUserData().then((updatedUser) => {
+                  if (updatedUser) {
+                    dispatch({
+                      type: "UPDATE_USER",
+                      payload: { user: updatedUser },
+                    });
+                  }
+                });
+              }
+            });
           }
         }
       } catch (error) {
-        console.error("Error loading stored auth data:", error);
-        // Clear invalid stored data
-        localStorage.removeItem(AUTH_STORAGE_KEYS.TOKEN);
-        localStorage.removeItem(AUTH_STORAGE_KEYS.USER);
+        console.error("Error initializing auth:", error);
+        AuthService.clearLocalData();
+      } finally {
+        dispatch({ type: "SET_LOADING", payload: { loading: false } });
       }
     };
 
-    loadStoredAuth();
+    initializeAuth();
   }, []);
-
-  // Store auth data in localStorage
-  const storeAuthData = (user: User, token: string) => {
-    localStorage.setItem(AUTH_STORAGE_KEYS.TOKEN, token);
-    localStorage.setItem(AUTH_STORAGE_KEYS.USER, JSON.stringify(user));
-    apiClient.setAuthToken(token);
-  };
-
-  // Clear stored auth data
-  const clearAuthData = () => {
-    localStorage.removeItem(AUTH_STORAGE_KEYS.TOKEN);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.USER);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.REMEMBER_ME);
-    apiClient.clearAuthToken();
-  };
 
   // Login function
   const login = async (credentials: LoginRequest): Promise<void> => {
     dispatch({ type: "AUTH_START" });
 
     try {
-      const response = await AuthAPI.login(credentials);
+      const response = await AuthService.login(credentials);
 
-      if (response.success && response.user && response.token) {
-        // Store auth data
-        storeAuthData(response.user, response.token);
-
-        // Store remember me preference
-        if (credentials.rememberMe) {
-          localStorage.setItem(AUTH_STORAGE_KEYS.REMEMBER_ME, "true");
-        }
-
-        dispatch({
-          type: "AUTH_SUCCESS",
-          payload: { user: response.user, token: response.token },
-        });
-      } else {
-        throw new Error(response.message || "Login failed");
-      }
+      dispatch({
+        type: "AUTH_SUCCESS",
+        payload: { user: response.user },
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Login failed";
       dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
       throw error;
     }
   };
@@ -209,35 +202,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: "AUTH_START" });
 
     try {
-      const response = await AuthAPI.register(userData);
+      const response = await AuthService.register(userData);
 
-      if (response.success && response.user && response.token) {
-        // Store auth data
-        storeAuthData(response.user, response.token);
-
-        dispatch({
-          type: "AUTH_SUCCESS",
-          payload: { user: response.user, token: response.token },
-        });
-      } else {
-        throw new Error(response.message || "Registration failed");
-      }
+      dispatch({
+        type: "AUTH_SUCCESS",
+        payload: { user: response.user },
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Registration failed";
       dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
+      throw error;
+    }
+  };
+
+  // Social login function
+  const socialLogin = async (
+    provider: "google" | "facebook",
+    socialUser: SocialUser
+  ): Promise<void> => {
+    dispatch({ type: "AUTH_START" });
+
+    try {
+      const response = await AuthService.socialLogin(provider, { socialUser });
+
+      dispatch({
+        type: "AUTH_SUCCESS",
+        payload: { user: response.user },
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Social login failed";
+      dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
       throw error;
     }
   };
 
   // Logout function
   const logout = async (): Promise<void> => {
+    dispatch({ type: "SET_LOADING", payload: { loading: true } });
+
     try {
-      await AuthAPI.logout();
+      await AuthService.logout();
     } catch (error) {
-      console.error("Logout API call failed:", error);
+      console.error("Logout error:", error);
     } finally {
-      clearAuthData();
       dispatch({ type: "AUTH_LOGOUT" });
     }
   };
@@ -247,10 +258,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: "SET_LOADING", payload: { loading: true } });
 
     try {
-      const updatedUser = await AuthAPI.updateProfile(data);
-
-      // Update stored user data
-      localStorage.setItem(AUTH_STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+      const updatedUser = await AuthService.updateProfile(data);
 
       dispatch({
         type: "UPDATE_USER",
@@ -260,6 +268,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const errorMessage =
         error instanceof Error ? error.message : "Profile update failed";
       dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
       throw error;
     } finally {
       dispatch({ type: "SET_LOADING", payload: { loading: false } });
@@ -271,48 +280,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: "SET_LOADING", payload: { loading: true } });
 
     try {
-      await AuthAPI.changePassword(data);
+      await AuthService.changePassword(data);
       dispatch({ type: "CLEAR_ERROR" });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Password change failed";
       dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
-      throw error;
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: { loading: false } });
-    }
-  };
-
-  // Forgot password function
-  const forgotPassword = async (email: string): Promise<void> => {
-    dispatch({ type: "SET_LOADING", payload: { loading: true } });
-
-    try {
-      await AuthAPI.forgotPassword(email);
-      dispatch({ type: "CLEAR_ERROR" });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Password reset request failed";
-      dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
-      throw error;
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: { loading: false } });
-    }
-  };
-
-  // Reset password function
-  const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
-    dispatch({ type: "SET_LOADING", payload: { loading: true } });
-
-    try {
-      await AuthAPI.resetPassword(data);
-      dispatch({ type: "CLEAR_ERROR" });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Password reset failed";
-      dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
       throw error;
     } finally {
       dispatch({ type: "SET_LOADING", payload: { loading: false } });
@@ -324,19 +298,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!state.isAuthenticated) return;
 
     try {
-      const updatedUser = await AuthAPI.refreshCurrentUser();
+      const updatedUser = await AuthService.refreshUserData();
 
-      // Update stored user data
-      localStorage.setItem(AUTH_STORAGE_KEYS.USER, JSON.stringify(updatedUser));
-
-      dispatch({
-        type: "UPDATE_USER",
-        payload: { user: updatedUser },
-      });
+      if (updatedUser) {
+        dispatch({
+          type: "UPDATE_USER",
+          payload: { user: updatedUser },
+        });
+      }
     } catch (error) {
       console.error("Failed to refresh user data:", error);
-      // If refresh fails, might need to logout
-      logout();
+      // If refresh fails, user might need to re-login
+      await logout();
     }
   };
 
@@ -349,7 +322,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextType = {
     // State
     user: state.user,
-    token: state.token,
     isAuthenticated: state.isAuthenticated,
     isLoading: state.isLoading,
     error: state.error,
@@ -357,11 +329,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Actions
     login,
     register,
+    socialLogin,
     logout,
     updateProfile,
     changePassword,
-    forgotPassword,
-    resetPassword,
     refreshUser,
     clearError,
   };

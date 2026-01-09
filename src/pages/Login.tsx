@@ -30,7 +30,6 @@ const loginSchema = z.object({
     .string()
     .min(1, "Senha é obrigatória")
     .min(6, "Senha deve ter pelo menos 6 caracteres"),
-  rememberMe: z.boolean().default(false),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -50,17 +49,13 @@ export default function Login() {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
       password: "",
-      rememberMe: false,
     },
   });
-
-  const rememberMe = watch("rememberMe");
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -79,7 +74,6 @@ export default function Login() {
       await login({
         email: data.email,
         password: data.password,
-        rememberMe: data.rememberMe,
       });
 
       toast({
@@ -89,14 +83,14 @@ export default function Login() {
 
       // Navigation will be handled by the useEffect above
     } catch (error) {
-      // Error is already handled by the AuthContext
+      // Error is already handled by the AuthContext and error handling utilities
       console.error("Login error:", error);
     }
   };
 
   const handleDemoLogin = () => {
-    setValue("email", "demo@unaestudio.com");
-    setValue("password", "demo123");
+    setValue("email", "admin@una.com");
+    setValue("password", "Admin123!");
   };
 
   return (
@@ -190,23 +184,6 @@ export default function Login() {
                     {errors.password.message}
                   </p>
                 )}
-              </div>
-
-              {/* Remember Me */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="rememberMe"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) =>
-                    setValue("rememberMe", checked as boolean)
-                  }
-                />
-                <Label
-                  htmlFor="rememberMe"
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  Lembrar de mim
-                </Label>
               </div>
 
               {/* Demo Login Helper */}
