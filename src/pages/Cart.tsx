@@ -1,13 +1,61 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useCart } from "@/contexts/CartContext";
-import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 const Cart = () => {
-  const { items, removeItem, updateQuantity, total } = useCart();
+  const {
+    items,
+    removeItem,
+    updateQuantity,
+    total,
+    totalItems,
+    isLoading,
+    error,
+    clearCart,
+  } = useCart();
 
-  if (items.length === 0) {
+  // Loading state
+  if (isLoading && items.length === 0) {
+    return (
+      <div className="min-h-screen py-12">
+        <div className="container mx-auto px-4">
+          <Skeleton className="h-12 w-64 mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="p-4">
+                  <div className="flex gap-4">
+                    <Skeleton className="w-24 h-24 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-8 w-32" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <div>
+              <Card className="p-6">
+                <Skeleton className="h-6 w-40 mb-6" />
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0 && !isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center py-12">
         <div className="text-center max-w-md">
@@ -18,6 +66,11 @@ const Cart = () => {
           <p className="text-muted-foreground mb-8">
             Adicione alguns produtos incríveis para começar suas compras!
           </p>
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <Button asChild size="lg">
             <Link to="/produtos">Ver Produtos</Link>
           </Button>
@@ -47,7 +100,9 @@ const Cart = () => {
                     />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-medium text-foreground mb-1">{item.name}</h3>
+                    <h3 className="font-medium text-foreground mb-1">
+                      {item.name}
+                    </h3>
                     <p className="text-lg font-semibold text-primary mb-3">
                       R$ {item.price.toFixed(2)}
                     </p>
@@ -56,7 +111,9 @@ const Cart = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -67,7 +124,9 @@ const Cart = () => {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
                       >
                         <Plus className="h-3 w-3" />
                       </Button>

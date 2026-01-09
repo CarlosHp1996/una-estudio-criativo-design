@@ -50,6 +50,11 @@ export interface SocialAuthResponse {
   user: User;
 }
 
+// Simplified Google login request (just access token)
+export interface GoogleLoginRequest {
+  accessToken: string;
+}
+
 // Product types
 export interface Product {
   id: string;
@@ -76,6 +81,40 @@ export interface ProductsResponse {
   totalPages: number;
   totalItems: number;
   pageSize: number;
+}
+
+export interface ProductFilters {
+  search?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  tags?: string[];
+  sortBy?: "name" | "price" | "rating" | "createdAt";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  productCount: number;
+}
+
+export interface CreateProductRequest {
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  tags: string[];
+  images: string[];
+  inventory: {
+    quantity: number;
+    minStock: number;
+  };
+}
+
+export interface UpdateProductRequest extends Partial<CreateProductRequest> {
+  id: string;
 }
 
 // Cart types

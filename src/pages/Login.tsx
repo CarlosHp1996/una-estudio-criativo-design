@@ -17,8 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
+import GoogleLoginButton from "@/components/GoogleLoginButton";
+import FacebookLoginButton from "@/components/FacebookLoginButton";
 
 // Form validation schema
 const loginSchema = z.object({
@@ -212,6 +215,24 @@ export default function Login() {
                   "Entrar"
                 )}
               </Button>
+
+              {/* Social Login Separator */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <Separator className="w-full" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Ou continue com
+                  </span>
+                </div>
+              </div>
+
+              {/* Social Login Buttons */}
+              <div className="grid gap-2">
+                <GoogleLoginButton disabled={isLoading} className="w-full" />
+                <FacebookLoginButton disabled={isLoading} className="w-full" />
+              </div>
 
               {/* Links */}
               <div className="flex flex-col space-y-2 text-center text-sm">

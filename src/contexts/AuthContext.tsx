@@ -177,6 +177,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, []);
 
+  // Listen for storage events (for social login detection)
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === "una_user" && event.newValue) {
+        // User data was updated (likely from social login)
+        try {
+          const user = JSON.parse(event.newValue);
+          dispatch({
+            type: "AUTH_SUCCESS",
+            payload: { user },
+          });
+        } catch (error) {
+          console.error("Error parsing user data from storage:", error);
+        }
+      } else if (event.key === "una_user" && event.newValue === null) {
+        // User data was cleared
+        dispatch({ type: "AUTH_LOGOUT" });
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
   // Login function
   const login = async (credentials: LoginRequest): Promise<void> => {
     dispatch({ type: "AUTH_START" });

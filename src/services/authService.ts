@@ -60,6 +60,38 @@ export class AuthService {
     return response;
   }
 
+  // Google login with access token
+  static async googleLogin(accessToken: string): Promise<SocialAuthResponse> {
+    const response = await apiUtils.post<SocialAuthResponse>(
+      "/social-auth/google",
+      { accessToken }
+    );
+
+    // Store token and user data
+    if (response.jwtToken) {
+      tokenManager.setToken(response.jwtToken);
+      localStorage.setItem("una_user", JSON.stringify(response.user));
+    }
+
+    return response;
+  }
+
+  // Facebook login with access token
+  static async facebookLogin(accessToken: string): Promise<SocialAuthResponse> {
+    const response = await apiUtils.post<SocialAuthResponse>(
+      "/social-auth/facebook",
+      { accessToken }
+    );
+
+    // Store token and user data
+    if (response.jwtToken) {
+      tokenManager.setToken(response.jwtToken);
+      localStorage.setItem("una_user", JSON.stringify(response.user));
+    }
+
+    return response;
+  }
+
   // Get current user profile
   static async getProfile(): Promise<User> {
     return await apiUtils.get<User>("/auth/profile");

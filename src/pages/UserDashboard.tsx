@@ -365,9 +365,8 @@ export function UserDashboard() {
 
                 <Button
                   variant="outline"
-                  className="h-20 flex flex-col gap-2"
+                  className="h-20 flex flex-col gap-2 button-pulse transition-all duration-300 hover:scale-105 hover:shadow-lg"
                   asChild
-                  className="button-pulse transition-all duration-300 hover:scale-105 hover:shadow-lg"
                 >
                   <Link to="/dashboard/perfil">
                     <Edit className="h-6 w-6" />
