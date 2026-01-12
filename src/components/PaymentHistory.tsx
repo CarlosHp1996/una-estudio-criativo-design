@@ -18,7 +18,7 @@ const PaymentHistory: React.FC = () => {
     try {
       setLoading(true);
       const response = await PaymentService.getPaymentHistory();
-      setPayments(response.payments);
+      setPayments(response.items); // Corrigido: usar response.items ao invés de response.payments
     } catch (error: any) {
       console.error("Error fetching payments:", error);
       toast.error("Erro ao carregar histórico de pagamentos");
@@ -120,7 +120,7 @@ const PaymentHistory: React.FC = () => {
             <div>
               <h3 className="font-medium text-gray-900">Método</h3>
               <p className="text-gray-600">
-                {formatPaymentMethod(payment.paymentMethod)}
+                {formatPaymentMethod(payment.method)}
               </p>
             </div>
 
@@ -148,6 +148,61 @@ const PaymentHistory: React.FC = () => {
                 <p className="text-gray-600 font-mono text-sm">
                   {payment.transactionId}
                 </p>
+              </div>
+            )}
+
+            {payment.billingId && (
+              <div>
+                <h3 className="font-medium text-gray-900">ID AbacatePay</h3>
+                <p className="text-gray-600 font-mono text-sm">
+                  {payment.billingId}
+                </p>
+              </div>
+            )}
+
+            {payment.pixCode && (
+              <div>
+                <h3 className="font-medium text-gray-900">Código PIX</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-1"
+                  onClick={() =>
+                    navigator.clipboard.writeText(payment.pixCode!)
+                  }
+                >
+                  Copiar código PIX
+                </Button>
+              </div>
+            )}
+
+            {payment.boletoUrl && (
+              <div>
+                <h3 className="font-medium text-gray-900">Boleto</h3>
+                <Button variant="outline" size="sm" className="mt-1" asChild>
+                  <a
+                    href={payment.boletoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Baixar Boleto
+                  </a>
+                </Button>
+              </div>
+            )}
+
+            {payment.paymentUrl && (
+              <div>
+                <h3 className="font-medium text-gray-900">Link de Pagamento</h3>
+                <Button variant="outline" size="sm" className="mt-1" asChild>
+                  <a
+                    href={payment.paymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Abrir pagamento
+                  </a>
+                </Button>
               </div>
             )}
 

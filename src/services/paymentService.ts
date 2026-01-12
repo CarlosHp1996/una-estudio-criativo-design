@@ -34,6 +34,56 @@ export class PaymentService {
   }
 
   /**
+   * Create AbacatePay billing for PIX/Boleto payments
+   * Returns URL for redirect or payment details
+   */
+  static async createBilling(request: {
+    orderId: string;
+    amount: number;
+    paymentMethod: "pix" | "boleto";
+    returnUrl: string;
+    completionUrl: string;
+  }): Promise<PaymentResponse> {
+    try {
+      const response = await httpClient.post<ApiResponse<PaymentResponse>>(
+        `${this.BASE_PATH}/billing/create`,
+        request
+      );
+      return response.data.data;
+    } catch (error: any) {
+      console.error("PaymentService.createBilling failed:", error);
+      throw parseApiError(error);
+    }
+  }
+
+  /**
+   * Get billing status from AbacatePay
+   */
+  static async getBillingStatus(billingId: string): Promise<{
+    status: "pending" | "approved" | "failed";
+    paidAt?: string;
+    amount: number;
+    paymentMethod: string;
+  }> {
+    try {
+      const response = await httpClient.get<ApiResponse<any>>(
+        `${this.BASE_PATH}/billing/${billingId}/status`
+      );
+      return response.data.data;
+    } catch (error: any) {
+      console.error("PaymentService.getBillingStatus failed:", error);
+      throw parseApiError(error);
+    }
+  }
+
+  /**
+   * Check if payment method supports redirect flow (PIX, Boleto)
+   */
+  static isRedirectPayment(paymentMethod: string): boolean {
+    return ["pix", "boleto"].includes(paymentMethod.toLowerCase());
+  }
+
+  /**
    * Get payment by ID
    */
   static async getPaymentById(paymentId: string): Promise<Payment> {

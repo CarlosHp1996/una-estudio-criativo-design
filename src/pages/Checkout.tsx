@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { OrderService } from "@/services/orderService";
 import { PaymentService } from "@/services/paymentService";
 import CreditCardForm from "@/components/forms/CreditCardForm";
+import AbacatePayment from "@/components/AbacatePayment";
 import {
   CreateOrderRequest,
   ShippingAddress,
@@ -18,7 +19,7 @@ import {
 } from "@/types/api";
 import { toast } from "sonner";
 
-type CheckoutStep = "shipping" | "payment" | "processing";
+type CheckoutStep = "shipping" | "payment" | "processing" | "abacate";
 
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
@@ -78,12 +79,41 @@ const Checkout = () => {
       const order = await OrderService.createOrder(orderRequest);
       setCreatedOrder(order);
 
-      // Move to payment step if credit card
+      // Move to payment step based on payment method
       if (formData.paymentMethod === "credit") {
         setCurrentStep("payment");
         toast.success("Pedido criado! Agora processe o pagamento.");
+      } else if (PaymentService.isRedirectPayment(formData.paymentMethod)) {
+        // PIX/Boleto - create AbacatePay billing
+        try {
+          const billingResponse = await PaymentService.createBilling({
+            orderId: order.id,
+            amount: total,
+            paymentMethod: formData.paymentMethod as "pix" | "boleto",
+            returnUrl: `${window.location.origin}/checkout`,
+            completionUrl: `${window.location.origin}/pedidos/${order.id}`,
+          });
+
+          // Store billing response for AbacatePayment component
+          setCreatedOrder({
+            ...order,
+            billingResponse,
+          });
+
+          setCurrentStep("abacate");
+          toast.success(
+            `${
+              formData.paymentMethod === "pix" ? "PIX" : "Boleto"
+            } gerado com sucesso!`
+          );
+        } catch (billingError: any) {
+          console.error("Billing creation error:", billingError);
+          toast.error(
+            billingError.message || "Erro ao gerar pagamento. Tente novamente."
+          );
+        }
       } else {
-        // For other payment methods, complete the process
+        // Other payment methods
         await clearCart();
         toast.success(`Pedido ${order.orderNumber} criado com sucesso!`);
         navigate(`/pedidos/${order.id}`, { state: { orderCreated: true } });
@@ -163,6 +193,31 @@ const Checkout = () => {
     setCreatedOrder(null);
   };
 
+  const handleAbacateBack = () => {
+    setCurrentStep("shipping");
+    setCreatedOrder(null);
+  };
+
+  const handleAbacateSuccess = async (transactionId: string) => {
+    await clearCart();
+    toast.success(
+      `Pagamento aprovado! Pedido ${createdOrder?.orderNumber} confirmado.`
+    );
+    navigate(`/pedidos/${createdOrder?.id}`, {
+      state: {
+        orderCreated: true,
+        paymentApproved: true,
+        transactionId,
+      },
+    });
+  };
+
+  const handleAbacateError = (error: string) => {
+    toast.error(error);
+    setCurrentStep("shipping");
+    setCreatedOrder(null);
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -204,12 +259,14 @@ const Checkout = () => {
         {/* Payment Step */}
         <div
           className={`flex items-center ${
-            currentStep === "payment" ? "text-primary" : "text-gray-500"
+            currentStep === "payment" || currentStep === "abacate"
+              ? "text-primary"
+              : "text-gray-500"
           }`}
         >
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              currentStep === "payment"
+              currentStep === "payment" || currentStep === "abacate"
                 ? "bg-primary text-white"
                 : currentStep === "processing"
                 ? "bg-green-500 text-white"
@@ -453,6 +510,28 @@ const Checkout = () => {
     </div>
   );
 
+  const renderAbacatePayment = () => {
+    if (!createdOrder?.billingResponse) {
+      return (
+        <div className="text-center">
+          <p>Erro: Dados de pagamento não encontrados.</p>
+          <Button onClick={handleAbacateBack} className="mt-4">
+            Voltar
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <AbacatePayment
+        paymentData={createdOrder.billingResponse}
+        onBack={handleAbacateBack}
+        onSuccess={handleAbacateSuccess}
+        onError={handleAbacateError}
+      />
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto">
@@ -465,6 +544,7 @@ const Checkout = () => {
         {currentStep === "shipping" && renderShippingForm()}
         {currentStep === "payment" && renderPaymentForm()}
         {currentStep === "processing" && renderProcessing()}
+        {currentStep === "abacate" && renderAbacatePayment()}
       </div>
     </div>
   );

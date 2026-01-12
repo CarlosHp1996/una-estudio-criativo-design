@@ -202,7 +202,9 @@ export interface PaymentRequest {
   orderId: string;
   paymentMethod: string;
   amount: number;
-  cardDetails: CardDetails;
+  cardDetails?: CardDetails; // Optional for PIX/Boleto
+  returnUrl?: string; // For AbacatePay redirect flow
+  completionUrl?: string; // For AbacatePay redirect flow
 }
 
 export interface Payment {
@@ -214,6 +216,14 @@ export interface Payment {
   transactionId: string;
   processedAt: string;
   expiresAt: string;
+  // AbacatePay specific fields
+  billingId?: string;
+  paymentUrl?: string;
+  pixCode?: string;
+  pixQrCode?: string;
+  boletoUrl?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PaymentResponse {
@@ -223,6 +233,13 @@ export interface PaymentResponse {
   message: string;
   approvedAt?: string;
   errorCode?: string;
+  // AbacatePay specific fields
+  billingId?: string; // AbacatePay billing ID
+  paymentUrl?: string; // URL for PIX/Boleto payment
+  pixCode?: string; // PIX code for copying
+  pixQrCode?: string; // PIX QR Code image
+  boletoUrl?: string; // Boleto PDF URL
+  expiresAt?: string; // Payment expiration
 }
 
 export interface PaymentsResponse {
