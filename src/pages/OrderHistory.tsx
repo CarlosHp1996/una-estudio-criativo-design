@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -17,6 +18,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import {
   Package,
   Search,
@@ -25,125 +35,103 @@ import {
   Eye,
   Calendar,
   DollarSign,
+  ShoppingBag,
 } from "lucide-react";
-
-// Mock data - em um app real viria da API
-const mockOrders = [
-  {
-    id: "ORD-001",
-    date: "2024-12-26",
-    total: 189.9,
-    status: "delivered",
-    items: [
-      { name: "Camiseta Básica Preta", quantity: 2, price: 49.9 },
-      { name: "Calça Jeans Skinny", quantity: 1, price: 89.9 },
-    ],
-    trackingCode: "BR123456789",
-    estimatedDelivery: "2024-12-28",
-  },
-  {
-    id: "ORD-002",
-    date: "2024-12-20",
-    total: 350.0,
-    status: "processing",
-    items: [
-      { name: "Vestido Floral Midi", quantity: 1, price: 159.9 },
-      { name: "Sandália de Couro", quantity: 1, price: 190.0 },
-    ],
-    trackingCode: null,
-    estimatedDelivery: "2024-12-30",
-  },
-  {
-    id: "ORD-003",
-    date: "2024-12-15",
-    total: 125.5,
-    status: "delivered",
-    items: [
-      { name: "Blusa Manga Longa", quantity: 1, price: 79.9 },
-      { name: "Saia Plissada", quantity: 1, price: 45.6 },
-    ],
-    trackingCode: "BR987654321",
-    estimatedDelivery: "2024-12-18",
-  },
-  {
-    id: "ORD-004",
-    date: "2024-12-10",
-    total: 450.0,
-    status: "cancelled",
-    items: [
-      { name: "Jaqueta Couro Sintético", quantity: 1, price: 289.9 },
-      { name: "Bota Ankle Boot", quantity: 1, price: 160.0 },
-    ],
-    trackingCode: null,
-    estimatedDelivery: null,
-  },
-  {
-    id: "ORD-005",
-    date: "2024-12-05",
-    total: 89.9,
-    status: "delivered",
-    items: [
-      { name: "Top Cropped Básico", quantity: 1, price: 39.9 },
-      { name: "Short Jeans Alto", quantity: 1, price: 49.9 },
-    ],
-    trackingCode: "BR555777999",
-    estimatedDelivery: "2024-12-08",
-  },
-];
+import { OrderService } from "@/services/orderService";
+import { Order, OrdersResponse } from "@/types/api";
+import { parseApiError } from "@/lib/errorHandling";
+import { toast } from "sonner";
 
 export function OrderHistory() {
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<Order["status"] | "all">("all");
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const pageSize = 10;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "delivered":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "processing":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "cancelled":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "shipped":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
+  useEffect(() => {
+    loadOrders();
+  }, [currentPage, statusFilter]);
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "delivered":
-        return "Entregue";
-      case "processing":
-        return "Processando";
-      case "cancelled":
-        return "Cancelado";
-      case "shipped":
-        return "Enviado";
-      default:
-        return "Pendente";
-    }
-  };
-
-  const filteredOrders = mockOrders.filter((order) => {
-    const matchesSearch =
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.items.some((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const loadOrders = async () => {
+    try {
+      setIsLoading(true);
+      const statusParam = statusFilter === "all" ? undefined : statusFilter;
+      const response: OrdersResponse = await OrderService.getOrders(
+        currentPage,
+        pageSize,
+        statusParam
       );
-    const matchesStatus =
-      statusFilter === "all" || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      
+      setOrders(response.items);
+      setCurrentPage(response.currentPage);
+      setTotalPages(response.totalPages);
+      setTotalOrders(response.totalItems);
+    } catch (error: any) {
+      console.error("Failed to load orders:", error);
+      const errorMessage = parseApiError(error).message;
+      toast.error(errorMessage);
+      setOrders([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value as Order["status"] | "all");
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleViewOrder = (orderId: string) => {
+    navigate(`/dashboard/pedidos/${orderId}`);
+  };
+
+  const getStatusColor = (status: Order["status"]) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-500/90 text-yellow-50 hover:bg-yellow-500";
+      case "processing":
+        return "bg-blue-500/90 text-blue-50 hover:bg-blue-500";
+      case "shipped":
+        return "bg-purple-500/90 text-purple-50 hover:bg-purple-500";
+      case "delivered":
+        return "bg-green-500/90 text-green-50 hover:bg-green-500";
+      case "cancelled":
+        return "bg-red-500/90 text-red-50 hover:bg-red-500";
+      default:
+        return "bg-gray-500/90 text-gray-50 hover:bg-gray-500";
+    }
+  };
+
+  const getStatusText = (status: Order["status"]) => {
+    switch (status) {
+      case "pending": return "Pendente";
+      case "processing": return "Processando";
+      case "shipped": return "Enviado";
+      case "delivered": return "Entregue";
+      case "cancelled": return "Cancelado";
+      default: return status;
+    }
+  };
+
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.items.some(item => item.productName.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesSearch;
   });
 
   const orderStats = {
-    total: mockOrders.length,
-    delivered: mockOrders.filter((o) => o.status === "delivered").length,
-    processing: mockOrders.filter((o) => o.status === "processing").length,
-    cancelled: mockOrders.filter((o) => o.status === "cancelled").length,
-    totalSpent: mockOrders.reduce(
-      (sum, order) => (order.status !== "cancelled" ? sum + order.total : sum),
+    total: totalOrders,
+    delivered: orders.filter((o) => o.status === "delivered").length,
+    processing: orders.filter((o) => o.status === "processing").length,
+    cancelled: orders.filter((o) => o.status === "cancelled").length,
+    totalSpent: orders.reduce(
+      (sum, order) => (order.status !== "cancelled" ? sum + order.totalAmount : sum),
       0
     ),
   };
@@ -241,16 +229,17 @@ export function OrderHistory() {
             </div>
 
             <div className="w-full md:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger>
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filtrar por status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="delivered">Entregues</SelectItem>
+                  <SelectItem value="pending">Pendentes</SelectItem>
                   <SelectItem value="processing">Processando</SelectItem>
                   <SelectItem value="shipped">Enviados</SelectItem>
+                  <SelectItem value="delivered">Entregues</SelectItem>
                   <SelectItem value="cancelled">Cancelados</SelectItem>
                 </SelectContent>
               </Select>
@@ -266,63 +255,86 @@ export function OrderHistory() {
 
       {/* Orders List */}
       <div className="space-y-4">
-        {filteredOrders.map((order) => (
-          <Card key={order.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-4 mb-2">
-                    <h3 className="text-lg font-semibold">#{order.id}</h3>
-                    <Badge
-                      variant="secondary"
-                      className={getStatusColor(order.status)}
-                    >
-                      {getStatusText(order.status)}
-                    </Badge>
-                  </div>
-
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>
-                        {new Date(order.date).toLocaleDateString("pt-BR")}
-                      </span>
+        {isLoading ? (
+          <Card className="p-8">
+            <div className="flex items-center justify-center">
+              <Spinner className="h-6 w-6 mr-2" />
+              <span className="text-muted-foreground">Carregando pedidos...</span>
+            </div>
+          </Card>
+        ) : filteredOrders.length === 0 ? (
+          <Card className="p-8 text-center">
+            <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              Nenhum pedido encontrado
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              {searchTerm 
+                ? "Tente ajustar os filtros de busca." 
+                : "Você ainda não fez nenhum pedido."}
+            </p>
+            <Button onClick={() => navigate("/produtos")}>
+              Explorar Produtos
+            </Button>
+          </Card>
+        ) : (
+          filteredOrders.map((order) => (
+            <Card key={order.id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4 mb-2">
+                      <h3 className="text-lg font-semibold">#{order.orderNumber}</h3>
+                      <Badge
+                        variant="secondary"
+                        className={getStatusColor(order.status)}
+                      >
+                        {getStatusText(order.status)}
+                      </Badge>
                     </div>
-                    <p>
-                      {order.items.length}{" "}
-                      {order.items.length === 1 ? "item" : "itens"}
-                    </p>
-                    {order.trackingCode && (
-                      <p>
-                        Código de rastreamento:{" "}
-                        <span className="font-medium">
-                          {order.trackingCode}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="flex flex-col md:items-end gap-2">
-                  <p className="text-lg font-bold">
-                    R${" "}
-                    {order.total.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setExpandedOrder(
-                        expandedOrder === order.id ? null : order.id
-                      )
-                    }
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    {expandedOrder === order.id ? "Ocultar" : "Ver detalhes"}
-                  </Button>
-                </div>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>
+                          {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      <p>
+                        {order.items.length}{" "}
+                        {order.items.length === 1 ? "item" : "itens"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col md:items-end gap-2">
+                    <p className="text-lg font-bold">
+                      R$ {order.totalAmount.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewOrder(order.id)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ver Detalhes
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setExpandedOrder(
+                            expandedOrder === order.id ? null : order.id
+                          )
+                        }
+                      >
+                        {expandedOrder === order.id ? "Ocultar" : "Expandir"}
+                      </Button>
+                    </div>
+                  </div>
               </div>
 
               {expandedOrder === order.id && (
@@ -336,14 +348,13 @@ export function OrderHistory() {
                         className="flex justify-between items-center py-2"
                       >
                         <div>
-                          <p className="font-medium">{item.name}</p>
+                          <p className="font-medium">{item.productName}</p>
                           <p className="text-sm text-gray-600">
-                            Quantidade: {item.quantity}
+                            Quantidade: {item.quantity} × R$ {item.unitPrice.toFixed(2)}
                           </p>
                         </div>
                         <p className="font-medium">
-                          R${" "}
-                          {item.price.toLocaleString("pt-BR", {
+                          R$ {item.subtotal.toLocaleString("pt-BR", {
                             minimumFractionDigits: 2,
                           })}
                         </p>
@@ -398,6 +409,48 @@ export function OrderHistory() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-8">
+            <Pagination>
+              <PaginationContent>
+                {currentPage > 1 && (
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      className="cursor-pointer"
+                    />
+                  </PaginationItem>
+                )}
+                
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                  return page <= totalPages ? (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={page === currentPage}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ) : null;
+                }).filter(Boolean)}
+                
+                {currentPage < totalPages && (
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      className="cursor-pointer"
+                    />
+                  </PaginationItem>
+                )}
+              </PaginationContent>
+            </Pagination>
+          </div>
         )}
       </div>
     </div>

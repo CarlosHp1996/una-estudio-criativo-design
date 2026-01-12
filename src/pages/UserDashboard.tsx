@@ -11,8 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SkeletonStats } from "@/components/ui/skeleton";
-import { LoadingSpinner } from "@/components/ui/spinner";
-import { apiClient } from "@/lib/apiClient";
+import { Spinner } from "@/components/ui/spinner";
+import { OrderService } from "@/services/orderService";
 import {
   ShoppingBag,
   Heart,
@@ -27,75 +27,79 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { Order } from "@/types/api";
+import { parseApiError } from "@/lib/errorHandling";
+import { toast } from "sonner";
 
 export function UserDashboard() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [statistics, setStatistics] = useState<{
+    totalOrders: number;
+    pendingOrders: number;
+    completedOrders: number;
+    cancelledOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+  } | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    // Simular loading de dados do dashboard
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-
-    return () => clearTimeout(timer);
+    loadDashboardData();
   }, []);
 
-  // Dados mock - em um app real viriam da API
-  const dashboardStats = {
-    totalOrders: 12,
-    pendingOrders: 2,
-    totalSpent: 2450.5,
-    favoriteItems: 8,
-    recentOrders: [
-      {
-        id: "ORD-001",
-        date: "2024-12-26",
-        total: 189.9,
-        status: "delivered",
-        items: 3,
-      },
-      {
-        id: "ORD-002",
-        date: "2024-12-20",
-        total: 350.0,
-        status: "processing",
-        items: 2,
-      },
-      {
-        id: "ORD-003",
-        date: "2024-12-15",
-        total: 125.5,
-        status: "delivered",
-        items: 1,
-      },
-    ],
-  };
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load statistics
+      const stats = await OrderService.getOrderStatistics();
+      setStatistics(stats);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "delivered":
-        return "bg-green-100 text-green-800";
-      case "processing":
-        return "bg-yellow-100 text-yellow-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      // Load recent orders (first 3)
+      const ordersResponse = await OrderService.getOrders(1, 3);
+      setRecentOrders(ordersResponse.items);
+    } catch (error: any) {
+      console.error("Failed to load dashboard data:", error);
+      const errorMessage = parseApiError(error).message;
+      toast.error(errorMessage);
+      
+      // Set default values on error
+      setStatistics({
+        totalOrders: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        cancelledOrders: 0,
+        totalRevenue: 0,
+        averageOrderValue: 0,
+      });
+      setRecentOrders([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusColor = (status: Order["status"]) => {
     switch (status) {
-      case "delivered":
-        return "Entregue";
-      case "processing":
-        return "Processando";
-      case "cancelled":
-        return "Cancelado";
-      default:
-        return "Pendente";
+      case "pending": return "bg-yellow-500";
+      case "processing": return "bg-blue-500";
+      case "shipped": return "bg-purple-500";
+      case "delivered": return "bg-green-500";
+      case "cancelled": return "bg-red-500";
+      default: return "bg-gray-500";
     }
+  };
+
+  const getStatusText = (status: Order["status"]) => {
+    switch (status) {
+      case "pending": return "Pendente";
+      case "processing": return "Processando";
+      case "shipped": return "Enviado";
+      case "delivered": return "Entregue";
+      case "cancelled": return "Cancelado";
+      default: return status;
+    }
+  };
   };
 
   return (
@@ -149,7 +153,7 @@ export function UserDashboard() {
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Bem-vindo, {user?.name || "Usuário"}!
+              Bem-vindo, {user?.userName || "Usuário"}!
             </h1>
             <p className="text-gray-600">
               Gerencie sua conta e acompanhe seus pedidos
@@ -166,7 +170,7 @@ export function UserDashboard() {
                       Total de Pedidos
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.totalOrders}
+                      {statistics?.totalOrders || 0}
                     </p>
                   </div>
                   <ShoppingBag className="h-8 w-8 text-green-600" />
@@ -182,7 +186,7 @@ export function UserDashboard() {
                       Pedidos Pendentes
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.pendingOrders}
+                      {statistics?.pendingOrders || 0}
                     </p>
                   </div>
                   <Package className="h-8 w-8 text-yellow-600" />
@@ -198,8 +202,7 @@ export function UserDashboard() {
                       Total Gasto
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      R${" "}
-                      {dashboardStats.totalSpent.toLocaleString("pt-BR", {
+                      R$ {(statistics?.totalRevenue || 0).toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                       })}
                     </p>
@@ -214,13 +217,15 @@ export function UserDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">
-                      Favoritos
+                      Ticket Médio
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {dashboardStats.favoriteItems}
+                      R$ {(statistics?.averageOrderValue || 0).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
                     </p>
                   </div>
-                  <Heart className="h-8 w-8 text-red-600" />
+                  <CreditCard className="h-8 w-8 text-purple-600" />
                 </div>
               </CardContent>
             </Card>
@@ -285,36 +290,44 @@ export function UserDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {dashboardStats.recentOrders.map((order, index) => (
-                    <div key={order.id}>
-                      <div className="flex items-center justify-between py-2">
-                        <div>
-                          <p className="font-medium text-sm">#{order.id}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(order.date).toLocaleDateString("pt-BR")} •{" "}
-                            {order.items} {order.items === 1 ? "item" : "itens"}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-sm">
-                            R${" "}
-                            {order.total.toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                            })}
-                          </p>
-                          <Badge
-                            variant="secondary"
-                            className={getStatusColor(order.status)}
-                          >
-                            {getStatusText(order.status)}
-                          </Badge>
-                        </div>
-                      </div>
-                      {index < dashboardStats.recentOrders.length - 1 && (
-                        <Separator className="mt-3" />
-                      )}
+                  {recentOrders.length === 0 ? (
+                    <div className="text-center py-4">
+                      <Package className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Nenhum pedido encontrado
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    recentOrders.map((order, index) => (
+                      <div key={order.id}>
+                        <div className="flex items-center justify-between py-2">
+                          <div>
+                            <p className="font-medium text-sm">#{order.orderNumber}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(order.createdAt).toLocaleDateString("pt-BR")} •{" "}
+                              {order.items.length} {order.items.length === 1 ? "item" : "itens"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-sm">
+                              R$ {order.totalAmount.toLocaleString("pt-BR", {
+                                minimumFractionDigits: 2,
+                              })}
+                            </p>
+                            <Badge
+                              variant="secondary"
+                              className={getStatusColor(order.status)}
+                            >
+                              {getStatusText(order.status)}
+                            </Badge>
+                          </div>
+                        </div>
+                        {index < recentOrders.length - 1 && (
+                          <Separator className="mt-3" />
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

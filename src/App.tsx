@@ -24,6 +24,7 @@ import ResetPassword from "./pages/ResetPassword";
 import UserDashboard from "./pages/UserDashboard";
 import Profile from "./pages/Profile";
 import OrderHistory from "./pages/OrderHistory";
+import OrderDetail from "./pages/OrderDetail";
 import AccountSettings from "./pages/AccountSettings";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import NotFound from "./pages/NotFound";
@@ -108,6 +109,7 @@ const App = () => (
                     <Route index element={<UserDashboard />} />
                     <Route path="perfil" element={<Profile />} />
                     <Route path="pedidos" element={<OrderHistory />} />
+                    <Route path="pedidos/:orderId" element={<OrderDetail />} />
                     <Route
                       path="favoritos"
                       element={

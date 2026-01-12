@@ -4,33 +4,90 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/hooks/useAuth";
+import { OrderService } from "@/services/orderService";
+import { CreateOrderRequest, ShippingAddress } from "@/types/api";
 import { toast } from "sonner";
 
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
+    name: user?.userName || "",
+    email: user?.email || "",
     phone: "",
     cep: "",
-    address: "",
+    street: "",
     number: "",
     complement: "",
     city: "",
     state: "",
     paymentMethod: "credit",
+    notes: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Pedido realizado com sucesso! Você receberá um email de confirmação.");
-    clearCart();
-    navigate("/");
+
+    if (!isAuthenticated) {
+      toast.error("Você precisa estar logado para finalizar a compra.");
+      navigate("/login");
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error("Seu carrinho está vazio.");
+      navigate("/carrinho");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const shippingAddress: ShippingAddress = {
+        street: `${formData.street}, ${formData.number}${
+          formData.complement ? `, ${formData.complement}` : ""
+        }`,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.cep,
+        country: "Brasil",
+      };
+
+      const orderRequest: CreateOrderRequest = {
+        shippingAddress,
+        paymentMethod: formData.paymentMethod,
+        notes: formData.notes,
+      };
+
+      const order = await OrderService.createOrder(orderRequest);
+
+      // Clear cart after successful order
+      await clearCart();
+
+      toast.success(`Pedido ${order.orderNumber} criado com sucesso!`);
+
+      // Navigate to order confirmation page
+      navigate(`/pedidos/${order.id}`, {
+        state: { orderCreated: true },
+      });
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      toast.error(
+        error.message || "Erro ao processar pedido. Tente novamente."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -109,12 +166,12 @@ const Checkout = () => {
                   </div>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-2">
-                      <Label htmlFor="address">Endereço</Label>
+                      <Label htmlFor="street">Endereço</Label>
                       <Input
-                        id="address"
-                        name="address"
+                        id="street"
+                        name="street"
                         required
-                        value={formData.address}
+                        value={formData.street}
                         onChange={handleChange}
                       />
                     </div>
@@ -205,8 +262,40 @@ const Checkout = () => {
                 </div>
               </Card>
 
-              <Button type="submit" size="lg" className="w-full">
-                Finalizar Pedido
+              {/* Order Notes */}
+              <Card className="p-6">
+                <h2 className="text-xl font-semibold text-foreground mb-4">
+                  Observações (Opcional)
+                </h2>
+                <div>
+                  <Label htmlFor="notes">
+                    Instruções de entrega ou observações
+                  </Label>
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Ex: Deixar com o porteiro, apartamento no 2º andar..."
+                  />
+                </div>
+              </Card>
+
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full"
+                disabled={isLoading || items.length === 0}
+              >
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    Processando Pedido...
+                  </>
+                ) : (
+                  `Finalizar Pedido - R$ ${total.toFixed(2)}`
+                )}
               </Button>
             </form>
           </div>
