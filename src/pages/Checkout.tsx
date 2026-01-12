@@ -8,14 +8,25 @@ import { Spinner } from "@/components/ui/spinner";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/hooks/useAuth";
 import { OrderService } from "@/services/orderService";
-import { CreateOrderRequest, ShippingAddress } from "@/types/api";
+import { PaymentService } from "@/services/paymentService";
+import CreditCardForm from "@/components/forms/CreditCardForm";
+import {
+  CreateOrderRequest,
+  ShippingAddress,
+  PaymentRequest,
+  CardDetails,
+} from "@/types/api";
 import { toast } from "sonner";
+
+type CheckoutStep = "shipping" | "payment" | "processing";
 
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>("shipping");
   const [isLoading, setIsLoading] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: user?.userName || "",
     email: user?.email || "",
@@ -30,7 +41,7 @@ const Checkout = () => {
     notes: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isAuthenticated) {
@@ -65,16 +76,18 @@ const Checkout = () => {
       };
 
       const order = await OrderService.createOrder(orderRequest);
+      setCreatedOrder(order);
 
-      // Clear cart after successful order
-      await clearCart();
-
-      toast.success(`Pedido ${order.orderNumber} criado com sucesso!`);
-
-      // Navigate to order confirmation page
-      navigate(`/pedidos/${order.id}`, {
-        state: { orderCreated: true },
-      });
+      // Move to payment step if credit card
+      if (formData.paymentMethod === "credit") {
+        setCurrentStep("payment");
+        toast.success("Pedido criado! Agora processe o pagamento.");
+      } else {
+        // For other payment methods, complete the process
+        await clearCart();
+        toast.success(`Pedido ${order.orderNumber} criado com sucesso!`);
+        navigate(`/pedidos/${order.id}`, { state: { orderCreated: true } });
+      }
     } catch (error: any) {
       console.error("Checkout error:", error);
       toast.error(
@@ -85,248 +98,373 @@ const Checkout = () => {
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handlePaymentSubmit = async (cardDetails: CardDetails) => {
+    if (!createdOrder) {
+      toast.error("Erro: Pedido não encontrado.");
+      return;
+    }
+
+    setCurrentStep("processing");
+    setIsLoading(true);
+
+    try {
+      const paymentRequest: PaymentRequest = {
+        orderId: createdOrder.id,
+        paymentMethod: "credit_card",
+        amount: total,
+        cardDetails,
+      };
+
+      const paymentResponse = await PaymentService.processPayment(
+        paymentRequest
+      );
+
+      if (paymentResponse.status === "approved") {
+        // Payment successful
+        await clearCart();
+        toast.success(
+          `Pagamento aprovado! Pedido ${createdOrder.orderNumber} confirmado.`
+        );
+        navigate(`/pedidos/${createdOrder.id}`, {
+          state: {
+            orderCreated: true,
+            paymentApproved: true,
+            transactionId: paymentResponse.transactionId,
+          },
+        });
+      } else if (paymentResponse.status === "pending") {
+        toast.info(
+          "Pagamento em processamento. Você será notificado sobre o resultado."
+        );
+        navigate(`/pedidos/${createdOrder.id}`, {
+          state: {
+            orderCreated: true,
+            paymentPending: true,
+          },
+        });
+      } else {
+        // Payment failed
+        toast.error(`Pagamento rejeitado: ${paymentResponse.message}`);
+        setCurrentStep("payment"); // Allow retry
+      }
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      toast.error(
+        error.message || "Erro ao processar pagamento. Tente novamente."
+      );
+      setCurrentStep("payment"); // Allow retry
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  if (items.length === 0) {
-    navigate("/carrinho");
-    return null;
-  }
+  const handlePaymentCancel = () => {
+    setCurrentStep("shipping");
+    setCreatedOrder(null);
+  };
 
-  return (
-    <div className="min-h-screen py-12">
-      <div className="container mx-auto px-4">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-8">
-          Finalizar Compra
-        </h1>
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Personal Data */}
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">
-                  Dados Pessoais
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Nome Completo</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      required
-                      value={formData.name}
-                      onChange={handleChange}
-                    />
+  const renderStepIndicator = () => (
+    <div className="flex items-center justify-center mb-8">
+      <div className="flex items-center space-x-4">
+        {/* Shipping Step */}
+        <div
+          className={`flex items-center ${
+            currentStep === "shipping" ? "text-primary" : "text-gray-500"
+          }`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              currentStep === "shipping"
+                ? "bg-primary text-white"
+                : createdOrder
+                ? "bg-green-500 text-white"
+                : "bg-gray-200"
+            }`}
+          >
+            {createdOrder ? "✓" : "1"}
+          </div>
+          <span className="ml-2">Entrega</span>
+        </div>
+
+        {/* Arrow */}
+        <div className="text-gray-400">→</div>
+
+        {/* Payment Step */}
+        <div
+          className={`flex items-center ${
+            currentStep === "payment" ? "text-primary" : "text-gray-500"
+          }`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              currentStep === "payment"
+                ? "bg-primary text-white"
+                : currentStep === "processing"
+                ? "bg-green-500 text-white"
+                : "bg-gray-200"
+            }`}
+          >
+            {currentStep === "processing" ? "✓" : "2"}
+          </div>
+          <span className="ml-2">Pagamento</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderShippingForm = () => (
+    <div className="max-w-4xl mx-auto p-4">
+      <Card className="p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Order Summary */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Resumo do Pedido</h2>
+            <div className="space-y-3">
+              {items.map((item) => (
+                <div
+                  key={`${item.id}-${item.size || "default"}`}
+                  className="flex justify-between items-center py-2 border-b"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium">{item.name}</p>
+                    {item.size && (
+                      <p className="text-sm text-gray-600">
+                        Tamanho: {item.size}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-600">
+                      Quantidade: {item.quantity}
+                    </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="email">E-mail</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="phone">Telefone</Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        required
-                        value={formData.phone}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
+                  <p className="font-semibold">
+                    R$ {(item.price * item.quantity).toFixed(2)}
+                  </p>
                 </div>
-              </Card>
-
-              {/* Address */}
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">
-                  Endereço de Entrega
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="cep">CEP</Label>
-                    <Input
-                      id="cep"
-                      name="cep"
-                      required
-                      value={formData.cep}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-2">
-                      <Label htmlFor="street">Endereço</Label>
-                      <Input
-                        id="street"
-                        name="street"
-                        required
-                        value={formData.street}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="number">Número</Label>
-                      <Input
-                        id="number"
-                        name="number"
-                        required
-                        value={formData.number}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="complement">Complemento</Label>
-                    <Input
-                      id="complement"
-                      name="complement"
-                      value={formData.complement}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="city">Cidade</Label>
-                      <Input
-                        id="city"
-                        name="city"
-                        required
-                        value={formData.city}
-                        onChange={handleChange}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="state">Estado</Label>
-                      <Input
-                        id="state"
-                        name="state"
-                        required
-                        value={formData.state}
-                        onChange={handleChange}
-                      />
-                    </div>
-                  </div>
+              ))}
+              <div className="pt-3 border-t">
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Total</span>
+                  <span>R$ {total.toFixed(2)}</span>
                 </div>
-              </Card>
+              </div>
+            </div>
+          </div>
 
-              {/* Payment */}
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">
-                  Forma de Pagamento
-                </h2>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="credit"
-                      checked={formData.paymentMethod === "credit"}
-                      onChange={handleChange}
-                      className="accent-primary"
-                    />
-                    <span>Cartão de Crédito</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="pix"
-                      checked={formData.paymentMethod === "pix"}
-                      onChange={handleChange}
-                      className="accent-primary"
-                    />
-                    <span>PIX</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="boleto"
-                      checked={formData.paymentMethod === "boleto"}
-                      onChange={handleChange}
-                      className="accent-primary"
-                    />
-                    <span>Boleto Bancário</span>
-                  </label>
-                </div>
-              </Card>
-
-              {/* Order Notes */}
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold text-foreground mb-4">
-                  Observações (Opcional)
-                </h2>
+          {/* Shipping Form */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">
+              Informações de Entrega
+            </h2>
+            <form onSubmit={handleShippingSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="notes">
-                    Instruções de entrega ou observações
-                  </Label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleChange}
-                    className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="Ex: Deixar com o porteiro, apartamento no 2º andar..."
+                  <Label htmlFor="name">Nome Completo</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
                   />
                 </div>
-              </Card>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </div>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                disabled={isLoading || items.length === 0}
-              >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cep">CEP</Label>
+                  <Input
+                    id="cep"
+                    name="cep"
+                    value={formData.cep}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="street">Rua</Label>
+                <Input
+                  id="street"
+                  name="street"
+                  value={formData.street}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="number">Número</Label>
+                  <Input
+                    id="number"
+                    name="number"
+                    value={formData.number}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="complement">Complemento</Label>
+                  <Input
+                    id="complement"
+                    name="complement"
+                    value={formData.complement}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="city">Cidade</Label>
+                  <Input
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="state">Estado</Label>
+                  <Input
+                    id="state"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="paymentMethod">Método de Pagamento</Label>
+                <select
+                  id="paymentMethod"
+                  name="paymentMethod"
+                  value={formData.paymentMethod}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-md"
+                  required
+                >
+                  <option value="credit">Cartão de Crédito</option>
+                  <option value="pix">PIX</option>
+                  <option value="boleto">Boleto</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Observações (opcional)</Label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded-md"
+                  rows={3}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Spinner className="mr-2 h-4 w-4" />
-                    Processando Pedido...
+                    Processando...
                   </>
                 ) : (
-                  `Finalizar Pedido - R$ ${total.toFixed(2)}`
+                  "Continuar para Pagamento"
                 )}
               </Button>
             </form>
           </div>
+        </div>
+      </Card>
+    </div>
+  );
 
-          {/* Order Summary */}
-          <div>
-            <Card className="p-6 sticky top-24">
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                Resumo do Pedido
-              </h2>
-              <div className="space-y-3 mb-6">
-                {items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {item.name} x {item.quantity}
-                    </span>
-                    <span className="text-foreground font-medium">
-                      R$ {(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-                <div className="border-t border-border pt-3">
-                  <div className="flex justify-between text-lg font-semibold text-foreground">
-                    <span>Total</span>
-                    <span className="text-primary">R$ {total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
+  const renderPaymentForm = () => (
+    <div className="max-w-2xl mx-auto p-4">
+      <Card className="p-6">
+        <h2 className="text-xl font-semibold mb-4">Pagamento</h2>
+
+        {/* Order Summary */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <h3 className="font-medium mb-2">
+            Pedido #{createdOrder?.orderNumber}
+          </h3>
+          <div className="flex justify-between text-lg font-bold">
+            <span>Total a pagar:</span>
+            <span>R$ {total.toFixed(2)}</span>
           </div>
         </div>
+
+        <CreditCardForm
+          onSubmit={handlePaymentSubmit}
+          onCancel={handlePaymentCancel}
+          loading={isLoading}
+        />
+      </Card>
+    </div>
+  );
+
+  const renderProcessing = () => (
+    <div className="flex flex-col items-center justify-center min-h-[400px]">
+      <Spinner className="h-12 w-12 mb-4" />
+      <h2 className="text-xl font-semibold mb-2">Processando Pagamento</h2>
+      <p className="text-gray-600 text-center">
+        Aguarde enquanto processamos seu pagamento.
+        <br />
+        Isso pode levar alguns segundos.
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="container mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-8">
+          Finalizar Compra
+        </h1>
+
+        {renderStepIndicator()}
+
+        {currentStep === "shipping" && renderShippingForm()}
+        {currentStep === "payment" && renderPaymentForm()}
+        {currentStep === "processing" && renderProcessing()}
       </div>
     </div>
   );

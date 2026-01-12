@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SkeletonStats } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { OrderService } from "@/services/orderService";
+import PaymentHistory from "@/components/PaymentHistory";
 import {
   ShoppingBag,
   Heart,

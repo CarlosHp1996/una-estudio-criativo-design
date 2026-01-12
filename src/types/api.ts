@@ -216,6 +216,23 @@ export interface Payment {
   expiresAt: string;
 }
 
+export interface PaymentResponse {
+  paymentId: string;
+  status: "pending" | "approved" | "failed";
+  transactionId: string;
+  message: string;
+  approvedAt?: string;
+  errorCode?: string;
+}
+
+export interface PaymentsResponse {
+  items: Payment[];
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+}
+
 // Tracking types
 export interface TrackingHistory {
   status: string;
