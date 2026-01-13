@@ -27,6 +27,7 @@ import OrderHistory from "./pages/OrderHistory";
 import OrderDetail from "./pages/OrderDetail";
 import AccountSettings from "./pages/AccountSettings";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
+import TrackingPage from "./pages/TrackingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -94,6 +95,7 @@ const App = () => (
                     />
                     <Route path="/sobre" element={<About />} />
                     <Route path="/contato" element={<Contact />} />
+                    <Route path="/rastreamento" element={<TrackingPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
 

@@ -14,6 +14,7 @@ import { SkeletonStats } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { OrderService } from "@/services/orderService";
 import PaymentHistory from "@/components/PaymentHistory";
+import { TrackingWidget } from "@/components/TrackingWidget";
 import {
   ShoppingBag,
   Heart,
@@ -332,6 +333,9 @@ export function UserDashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Tracking Widget */}
+            <TrackingWidget orders={recentOrders} title="Rastrear Pedidos" />
           </div>
 
           {/* Ações Rápidas */}

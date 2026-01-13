@@ -171,6 +171,7 @@ export interface Order {
   items: OrderItem[];
   shippingAddress: ShippingAddress;
   paymentStatus: "pending" | "approved" | "failed";
+  trackingCode?: string; // Optional tracking code when order is shipped
   createdAt: string;
   updatedAt?: string;
 }

@@ -106,6 +106,12 @@ const Header = () => {
                   >
                     Contato
                   </Link>
+                  <Link
+                    to="/rastreamento"
+                    className="text-foreground hover:text-primary transition-all duration-300 hover:scale-105"
+                  >
+                    Rastreamento
+                  </Link>
                 </>
               )}
             </div>
@@ -180,6 +186,13 @@ const Header = () => {
               onClick={() => setIsMenuOpen(false)}
             >
               Contato
+            </Link>
+            <Link
+              to="/rastreamento"
+              className="text-foreground hover:text-primary transition-smooth"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Rastreamento
             </Link>
 
             {/* Mobile User Menu */}

@@ -28,6 +28,7 @@ import {
   MapPin,
   CreditCard,
   FileText,
+  Search,
 } from "lucide-react";
 
 const OrderDetail = () => {
@@ -300,6 +301,15 @@ const OrderDetail = () => {
                     {getPaymentStatusText(order.paymentStatus)}
                   </span>
                 </div>
+                {order.trackingCode && (
+                  <div className="flex items-center text-sm">
+                    <Truck className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span className="text-muted-foreground">Rastreamento:</span>
+                    <span className="ml-auto font-mono text-sm font-medium">
+                      {order.trackingCode}
+                    </span>
+                  </div>
+                )}
                 <div className="border-t border-border pt-3">
                   <div className="flex justify-between text-lg font-semibold text-foreground">
                     <span>Total</span>
@@ -317,6 +327,18 @@ const OrderDetail = () => {
                 Ações
               </h2>
               <div className="space-y-3">
+                {order.trackingCode && (
+                  <Button
+                    onClick={() =>
+                      navigate(`/rastreamento?codigo=${order.trackingCode}`)
+                    }
+                    variant="default"
+                    className="w-full"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Rastrear Pedido
+                  </Button>
+                )}
                 <Button
                   onClick={() => navigate("/pedidos")}
                   variant="outline"

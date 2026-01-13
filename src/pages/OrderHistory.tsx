@@ -36,6 +36,7 @@ import {
   Calendar,
   DollarSign,
   ShoppingBag,
+  Truck,
 } from "lucide-react";
 import { OrderService } from "@/services/orderService";
 import { Order, OrdersResponse } from "@/types/api";
@@ -314,6 +315,16 @@ export function OrderHistory() {
                       })}
                     </p>
                     <div className="flex gap-2">
+                      {order.trackingCode && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/rastreamento?codigo=${order.trackingCode}`)}
+                        >
+                          <Truck className="h-4 w-4 mr-2" />
+                          Rastrear
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
