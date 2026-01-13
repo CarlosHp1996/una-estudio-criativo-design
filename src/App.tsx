@@ -28,6 +28,15 @@ import OrderDetail from "./pages/OrderDetail";
 import AccountSettings from "./pages/AccountSettings";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import TrackingPage from "./pages/TrackingPage";
+import AdminRoute from "./components/AdminRoute";
+import { AdminLayout } from "./components/admin/AdminLayout";
+import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { AdminProductsPage } from "./pages/admin/AdminProductsPage";
+import { AdminOrdersPage } from "./pages/admin/AdminOrdersPage";
+import { AdminOrderDetailPage } from "./pages/admin/AdminOrderDetailPage";
+import { AdminReportsPage } from "./pages/admin/AdminReportsPage";
+import { AdminAuditPage } from "./pages/admin/AdminAuditPage";
+import { AdminSettingsPage } from "./pages/admin/AdminSettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -149,6 +158,38 @@ const App = () => (
                         </div>
                       }
                     />
+                  </Route>
+
+                  {/* Admin Routes (protected) */}
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminRoute>
+                        <AdminLayout />
+                      </AdminRoute>
+                    }
+                  >
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="products" element={<AdminProductsPage />} />
+                    <Route path="orders" element={<AdminOrdersPage />} />
+                    <Route
+                      path="orders/:orderId"
+                      element={<AdminOrderDetailPage />}
+                    />
+                    <Route
+                      path="customers"
+                      element={
+                        <div className="p-6">
+                          <h1 className="text-2xl font-bold">
+                            Gestão de Clientes
+                          </h1>
+                          <p>Em desenvolvimento...</p>
+                        </div>
+                      }
+                    />
+                    <Route path="reports" element={<AdminReportsPage />} />
+                    <Route path="audit" element={<AdminAuditPage />} />
+                    <Route path="settings" element={<AdminSettingsPage />} />
                   </Route>
                 </Routes>
               </BrowserRouter>

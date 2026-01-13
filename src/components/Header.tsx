@@ -1,14 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
+import { useIsAdmin } from "./AdminRoute";
 import UserMenu from "./UserMenu";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { items } = useCart();
   const location = useLocation();
+  const isAdmin = useIsAdmin();
   const cartItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const isHomePage = location.pathname === "/";
 
@@ -119,6 +121,16 @@ const Header = () => {
 
           {/* User Menu & Cart - Right Side */}
           <div className="flex items-center gap-2">
+            {/* Admin Button - Only for admins */}
+            {isAdmin && (
+              <Link to="/admin">
+                <Button variant="outline" size="sm" className="hidden md:flex">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              </Link>
+            )}
+
             {/* User Menu - Hidden on Mobile */}
             <div className="hidden md:block">
               <UserMenu />
