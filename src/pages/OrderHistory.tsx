@@ -48,203 +48,185 @@ export function OrderHistory() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<Order["status"] | "all">("all");
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const pageSize = 10;
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     loadOrders();
-  }, [currentPage, statusFilter]);
+  }, [currentPage]);
 
   const loadOrders = async () => {
     try {
       setIsLoading(true);
-      const statusParam = statusFilter === "all" ? undefined : statusFilter;
-      const response: OrdersResponse = await OrderService.getOrders(
-        currentPage,
-        pageSize,
-        statusParam
-      );
-      
-      setOrders(response.items);
-      setCurrentPage(response.currentPage);
-      setTotalPages(response.totalPages);
-      setTotalOrders(response.totalItems);
-    } catch (error: any) {
-      console.error("Failed to load orders:", error);
-      const errorMessage = parseApiError(error).message;
-      toast.error(errorMessage);
-      setOrders([]);
+      const response = await OrderService.getOrders(currentPage, itemsPerPage);
+      setOrders(response.orders);
+    } catch (error) {
+      console.error("Error loading orders:", error);
+      toast.error("Erro ao carregar pedidos");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleStatusFilterChange = (value: string) => {
-    setStatusFilter(value as Order["status"] | "all");
-    setCurrentPage(1); // Reset to first page when filtering
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.status.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all" || order.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
   };
 
   const handleViewOrder = (orderId: string) => {
     navigate(`/dashboard/pedidos/${orderId}`);
   };
 
-  const getStatusColor = (status: Order["status"]) => {
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-500/90 text-yellow-50 hover:bg-yellow-500";
+        return "secondary";
       case "processing":
-        return "bg-blue-500/90 text-blue-50 hover:bg-blue-500";
+        return "default";
       case "shipped":
-        return "bg-purple-500/90 text-purple-50 hover:bg-purple-500";
+        return "outline";
       case "delivered":
-        return "bg-green-500/90 text-green-50 hover:bg-green-500";
+        return "default";
       case "cancelled":
-        return "bg-red-500/90 text-red-50 hover:bg-red-500";
+        return "destructive";
       default:
-        return "bg-gray-500/90 text-gray-50 hover:bg-gray-500";
+        return "secondary";
     }
   };
 
-  const getStatusText = (status: Order["status"]) => {
+  const getStatusLabel = (status: string) => {
     switch (status) {
-      case "pending": return "Pendente";
-      case "processing": return "Processando";
-      case "shipped": return "Enviado";
-      case "delivered": return "Entregue";
-      case "cancelled": return "Cancelado";
-      default: return status;
+      case "pending":
+        return "Pendente";
+      case "processing":
+        return "Processando";
+      case "shipped":
+        return "Enviado";
+      case "delivered":
+        return "Entregue";
+      case "cancelled":
+        return "Cancelado";
+      default:
+        return status;
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.items.some(item => item.productName.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesSearch;
-  });
+  const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const pendingCount = orders.filter(
+    (order) => order.status === "pending"
+  ).length;
+  const deliveredCount = orders.filter(
+    (order) => order.status === "delivered"
+  ).length;
 
-  const orderStats = {
-    total: totalOrders,
-    delivered: orders.filter((o) => o.status === "delivered").length,
-    processing: orders.filter((o) => o.status === "processing").length,
-    cancelled: orders.filter((o) => o.status === "cancelled").length,
-    totalSpent: orders.reduce(
-      (sum, order) => (order.status !== "cancelled" ? sum + order.totalAmount : sum),
-      0
-    ),
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner className="h-8 w-8" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Histórico de Pedidos
-        </h1>
-        <p className="text-gray-600">
-          Acompanhe todos os seus pedidos e entregas
-        </p>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Histórico de Pedidos
+          </h1>
+          <p className="text-muted-foreground">
+            Gerencie e acompanhe todos os seus pedidos
+          </p>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Total de Pedidos
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {orderStats.total}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-blue-600" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total em Pedidos
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R${" "}
+              {totalAmount.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+              })}
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Entregues</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {orderStats.delivered}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-green-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Pedidos Pendentes
+            </CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingCount}</div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Processando</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {orderStats.processing}
-                </p>
-              </div>
-              <Package className="h-8 w-8 text-yellow-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Gasto</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  R${" "}
-                  {orderStats.totalSpent.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Pedidos Entregues
+            </CardTitle>
+            <Truck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{deliveredCount}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar por número do pedido ou produto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por número do pedido ou status..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-10"
+              />
             </div>
 
-            <div className="w-full md:w-48">
-              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger>
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filtrar por status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os status</SelectItem>
-                  <SelectItem value="pending">Pendentes</SelectItem>
-                  <SelectItem value="processing">Processando</SelectItem>
-                  <SelectItem value="shipped">Enviados</SelectItem>
-                  <SelectItem value="delivered">Entregues</SelectItem>
-                  <SelectItem value="cancelled">Cancelados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="processing">Processando</SelectItem>
+                <SelectItem value="shipped">Enviados</SelectItem>
+                <SelectItem value="delivered">Entregues</SelectItem>
+                <SelectItem value="cancelled">Cancelados</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
@@ -254,24 +236,16 @@ export function OrderHistory() {
         </CardContent>
       </Card>
 
-      {/* Orders List */}
       <div className="space-y-4">
-        {isLoading ? (
-          <Card className="p-8">
-            <div className="flex items-center justify-center">
-              <Spinner className="h-6 w-6 mr-2" />
-              <span className="text-muted-foreground">Carregando pedidos...</span>
-            </div>
-          </Card>
-        ) : filteredOrders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <Card className="p-8 text-center">
             <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">
               Nenhum pedido encontrado
             </h3>
             <p className="text-muted-foreground mb-4">
-              {searchTerm 
-                ? "Tente ajustar os filtros de busca." 
+              {searchTerm
+                ? "Tente ajustar os filtros de busca."
                 : "Você ainda não fez nenhum pedido."}
             </p>
             <Button onClick={() => navigate("/produtos")}>
@@ -285,32 +259,27 @@ export function OrderHistory() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-2">
-                      <h3 className="text-lg font-semibold">#{order.orderNumber}</h3>
-                      <Badge
-                        variant="secondary"
-                        className={getStatusColor(order.status)}
-                      >
-                        {getStatusText(order.status)}
+                      <h3 className="text-lg font-semibold">
+                        #{order.orderNumber}
+                      </h3>
+                      <Badge variant={getStatusBadgeVariant(order.status)}>
+                        {getStatusLabel(order.status)}
                       </Badge>
                     </div>
-
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          {new Date(order.createdAt).toLocaleDateString("pt-BR")}
-                        </span>
-                      </div>
-                      <p>
-                        {order.items.length}{" "}
-                        {order.items.length === 1 ? "item" : "itens"}
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {order.items.length}{" "}
+                      {order.items.length === 1 ? "item" : "itens"}
+                    </p>
                   </div>
 
                   <div className="flex flex-col md:items-end gap-2">
                     <p className="text-lg font-bold">
-                      R$ {order.totalAmount.toLocaleString("pt-BR", {
+                      R${" "}
+                      {order.totalAmount.toLocaleString("pt-BR", {
                         minimumFractionDigits: 2,
                       })}
                     </p>
@@ -319,7 +288,11 @@ export function OrderHistory() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate(`/rastreamento?codigo=${order.trackingCode}`)}
+                          onClick={() =>
+                            navigate(
+                              `/rastreamento?codigo=${order.trackingCode}`
+                            )
+                          }
                         >
                           <Truck className="h-4 w-4 mr-2" />
                           Rastrear
@@ -346,124 +319,82 @@ export function OrderHistory() {
                       </Button>
                     </div>
                   </div>
-              </div>
+                </div>
 
-              {expandedOrder === order.id && (
-                <>
-                  <Separator className="my-4" />
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Itens do pedido:</h4>
-                    {order.items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex justify-between items-center py-2"
-                      >
-                        <div>
-                          <p className="font-medium">{item.productName}</p>
-                          <p className="text-sm text-gray-600">
-                            Quantidade: {item.quantity} × R$ {item.unitPrice.toFixed(2)}
+                {expandedOrder === order.id && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Itens do pedido:</h4>
+                      {order.items.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center py-2"
+                        >
+                          <div>
+                            <p className="font-medium">{item.productName}</p>
+                            <p className="text-sm text-gray-600">
+                              Quantidade: {item.quantity} × R${" "}
+                              {item.unitPrice.toFixed(2)}
+                            </p>
+                          </div>
+                          <p className="font-medium">
+                            R${" "}
+                            {item.subtotal.toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                            })}
                           </p>
                         </div>
-                        <p className="font-medium">
-                          R$ {item.subtotal.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </p>
-                      </div>
-                    ))}
-
-                    {order.status === "processing" &&
-                      order.estimatedDelivery && (
-                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                          <p className="text-sm text-yellow-800">
-                            <strong>Previsão de entrega:</strong>{" "}
-                            {new Date(
-                              order.estimatedDelivery
-                            ).toLocaleDateString("pt-BR")}
-                          </p>
-                        </div>
-                      )}
-
-                    {order.status === "delivered" && (
-                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                        <p className="text-sm text-green-800">
-                          <strong>Pedido entregue com sucesso!</strong>
-                        </p>
-                      </div>
-                    )}
-
-                    {order.status === "cancelled" && (
-                      <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                        <p className="text-sm text-red-800">
-                          <strong>Este pedido foi cancelado.</strong>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-
-        {filteredOrders.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhum pedido encontrado
-              </h3>
-              <p className="text-gray-600">
-                {searchTerm || statusFilter !== "all"
-                  ? "Tente ajustar os filtros de busca"
-                  : "Você ainda não fez nenhum pedido"}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-8">
-            <Pagination>
-              <PaginationContent>
-                {currentPage > 1 && (
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      className="cursor-pointer"
-                    />
-                  </PaginationItem>
+                      ))}
+                    </div>
+                  </>
                 )}
-                
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
-                  return page <= totalPages ? (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={page === currentPage}
-                        className="cursor-pointer"
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ) : null;
-                }).filter(Boolean)}
-                
-                {currentPage < totalPages && (
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      className="cursor-pointer"
-                    />
-                  </PaginationItem>
-                )}
-              </PaginationContent>
-            </Pagination>
-          </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-8">
+          <Pagination>
+            <PaginationContent>
+              {currentPage > 1 && (
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    className="cursor-pointer"
+                  />
+                </PaginationItem>
+              )}
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const page = currentPage <= 3 ? i + 1 : currentPage - 2 + i;
+                return page <= totalPages ? (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ) : null;
+              })}
+
+              {currentPage < totalPages && (
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    className="cursor-pointer"
+                  />
+                </PaginationItem>
+              )}
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
     </div>
   );
 }

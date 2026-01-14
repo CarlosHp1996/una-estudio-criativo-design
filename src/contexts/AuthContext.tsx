@@ -1,4 +1,10 @@
-import { createContext, useReducer, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  ReactNode,
+} from "react";
 import type {
   User,
   LoginRequest,
@@ -367,3 +373,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 }
 
 export { AuthContext };
+
+// Hook para usar o contexto
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
+  }
+  return context;
+};
