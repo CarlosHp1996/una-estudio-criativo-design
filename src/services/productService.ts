@@ -1,5 +1,10 @@
-// Product Service - API Integration
+// Product Service - API Integration with Caching
 import { httpClient, apiUtils } from "@/lib/httpClient";
+import {
+  cachedRequest,
+  generateCacheKey,
+  CacheConfig,
+} from "@/lib/requestCache";
 import type {
   Product,
   ProductsResponse,
@@ -14,7 +19,8 @@ export class ProductService {
   static async getProducts(
     page: number = 1,
     pageSize: number = 12,
-    filters?: ProductFilters
+    filters?: ProductFilters,
+    useCache: boolean = true
   ): Promise<ProductsResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -46,14 +52,42 @@ export class ProductService {
       }
     }
 
-    return await apiUtils.get<ProductsResponse>(
-      `/products?${params.toString()}`
+    const url = `/products?${params.toString()}`;
+
+    if (!useCache) {
+      return await apiUtils.get<ProductsResponse>(url);
+    }
+
+    // Generate cache key based on parameters
+    const cacheKey = generateCacheKey("products", {
+      page,
+      pageSize,
+      ...filters,
+    });
+
+    return await cachedRequest(
+      cacheKey,
+      () => apiUtils.get<ProductsResponse>(url),
+      CacheConfig.DYNAMIC
     );
   }
 
-  // Get product by ID
-  static async getProductById(productId: string): Promise<Product> {
-    return await apiUtils.get<Product>(`/products/${productId}`);
+  // Get product by ID with caching
+  static async getProductById(
+    productId: string,
+    useCache: boolean = true
+  ): Promise<Product> {
+    if (!useCache) {
+      return await apiUtils.get<Product>(`/products/${productId}`);
+    }
+
+    const cacheKey = generateCacheKey("product-detail", { productId });
+
+    return await cachedRequest(
+      cacheKey,
+      () => apiUtils.get<Product>(`/products/${productId}`),
+      CacheConfig.STATIC
+    );
   }
 
   // Search products

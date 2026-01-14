@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import ProductCard from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ const Products = () => {
 
   // Load products when filters change
   useEffect(() => {
-    const loadProducts = async () => {
+    const loadProducts = useCallback(async () => {
       setIsLoading(true);
       setError(null);
 
@@ -91,30 +91,48 @@ const Products = () => {
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [searchTerm, selectedCategory, currentPage]);
 
     loadProducts();
-  }, [searchTerm, selectedCategory, currentPage]);
+  }, [loadProducts]);
 
-  const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    setCurrentPage(1); // Reset to first page
-    if (categoryId === "todos") {
-      setSearchParams({});
-    } else {
-      setSearchParams({ categoria: categoryId });
-    }
-  };
+  const handleCategoryChange = useCallback(
+    (categoryId: string) => {
+      setSelectedCategory(categoryId);
+      setCurrentPage(1); // Reset to first page
+      if (categoryId === "todos") {
+        setSearchParams({});
+      } else {
+        setSearchParams({ categoria: categoryId });
+      }
+    },
+    [setSearchParams]
+  );
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1); // Reset to first page
-  };
+  }, []);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, []);
+
+  // Memoized filtered products
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch =
+        !searchTerm ||
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesCategory =
+        selectedCategory === "todos" || product.categoryId === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchTerm, selectedCategory]);
 
   return (
     <div className="min-h-screen py-12">
