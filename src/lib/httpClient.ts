@@ -5,7 +5,6 @@ import axios, {
   InternalAxiosRequestConfig,
 } from "axios";
 import Cookies from "js-cookie";
-import { debugLogger } from "./debugLogger";
 
 // Types for our API responses
 export interface ApiResponse<T = any> {
@@ -73,15 +72,6 @@ httpClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = tokenManager.getToken();
 
-    // Debug logging (only in development)
-    if (import.meta.env.VITE_DEBUG_API === "true") {
-      debugLogger.apiRequest(
-        config.method || "GET",
-        config.url || "",
-        config.data
-      );
-    }
-
     // List of endpoints that do NOT require a token.
     const publicEndpoints = [
       "/Auth/login",
@@ -120,52 +110,17 @@ httpClient.interceptors.request.use(
 // Response interceptor for error handling and token management
 httpClient.interceptors.response.use(
   (response) => {
-    // Log response time and details
-    const metadata = (response.config as any).metadata;
-    const duration = Date.now() - (metadata?.startTime || 0);
-    debugLogger.apiResponse(
-      response.config.method || "GET",
-      response.config.url || "",
-      response.status,
-      { duration: `${duration}ms`, data: response.data }
-    );
-
     return response;
   },
   (error: AxiosError) => {
     const { response, config } = error;
-
-    // If it's a redirect, intercept and try again.
-    if (response?.status === 307 || response?.status === 301) {
-      const location = response.headers.location;
-      if (location && import.meta.env.DEV) {
-        // Converter HTTPS para HTTP e tentar novamente
-        const httpLocation = location.replace("https://", "http://");
-        debugLogger.apiError("REDIRECT_INTERCEPTED", location, {
-          newUrl: httpLocation,
-        });
-
-        // Make a new request using HTTP.
-        const newConfig = { ...config };
-        newConfig.url = httpLocation;
-        return httpClient.request(newConfig);
-      }
-    }
-
-    // Debug log the error
-    debugLogger.apiError(config?.method || "UNKNOWN", config?.url || "", {
-      status: response?.status,
-      statusText: response?.statusText,
-      data: response?.data,
-      message: error.message,
-    });
 
     // Handle different error scenarios
     if (response) {
       const statusCode = response.status;
 
       switch (statusCode) {
-        case 401:
+        case 401: {
           // Unauthorized - token expired or invalid
           tokenManager.removeToken();
 
@@ -182,6 +137,7 @@ httpClient.interceptors.response.use(
             window.location.href = "/login";
           }
           break;
+        }
 
         case 403:
           // Forbidden - insufficient permissions

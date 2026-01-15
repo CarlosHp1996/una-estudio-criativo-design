@@ -282,29 +282,6 @@ export function useIntersectionObserver(
 
 // Hook para performance monitoring
 export function usePerformanceMonitor(componentName: string) {
-  const renderCount = useRef(0);
-  const startTime = useRef<number>(performance.now());
-
-  useEffect(() => {
-    renderCount.current += 1;
-  });
-
-  useEffect(() => {
-    const endTime = performance.now();
-    const renderTime = endTime - startTime.current;
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(`[Performance] ${componentName}:`, {
-        renderCount: renderCount.current,
-        renderTime: `${renderTime.toFixed(2)}ms`,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    startTime.current = performance.now();
-  });
-
-  return {
-    renderCount: renderCount.current,
-  };
+  // DISABLED: Prevents infinite re-renders
+  return { renderCount: 0 };
 }

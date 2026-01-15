@@ -5,10 +5,7 @@ import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { memo, useCallback, useRef, useMemo } from "react";
 import OptimizedImage from "@/components/ui/optimized-image";
-import {
-  useIntersectionObserver,
-  usePerformanceMonitor,
-} from "@/hooks/useOptimization";
+import { useIntersectionObserver } from "@/hooks/useOptimization";
 import { ProductCardSkeleton } from "@/components/ui/smart-skeleton";
 import { ShoppingCart, Heart } from "lucide-react";
 
@@ -42,11 +39,6 @@ const ProductCard = memo(
   }: ProductCardProps) => {
     const { addItem } = useCart();
     const cardRef = useRef<HTMLDivElement>(null);
-
-    // Performance monitoring in development
-    if (process.env.NODE_ENV === "development") {
-      usePerformanceMonitor(`ProductCard-${id}`);
-    }
 
     // Intersection observer for lazy loading
     const { isIntersecting } = useIntersectionObserver(cardRef, {
