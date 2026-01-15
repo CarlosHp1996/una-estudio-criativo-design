@@ -14,18 +14,43 @@ import type {
 export class AuthService {
   // Login with email/password
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await apiUtils.post<AuthResponse>(
-      "/auth/login",
-      credentials
-    );
+    try {
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL || "https://localhost:4242/api"
+        }/Auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(credentials),
+        }
+      );
 
-    // Store token and user data
-    if (response.token) {
-      tokenManager.setToken(response.token);
-      localStorage.setItem("una_user", JSON.stringify(response.user));
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const authResponse: AuthResponse = {
+        token: data.value?.token || data.token,
+        user: data.value || data.user,
+        success: true,
+      };
+
+      // Store token and user data
+      if (authResponse.token) {
+        tokenManager.setToken(authResponse.token);
+        localStorage.setItem("una_user", JSON.stringify(authResponse.user));
+      }
+
+      return authResponse;
+    } catch (error: any) {
+      console.error("Login error:", error);
+      throw new Error(error.message || "Login failed");
     }
-
-    return response;
   }
 
   // Register new account

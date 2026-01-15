@@ -7,6 +7,17 @@ export default defineConfig({
   server: {
     host: "::",
     port: parseInt(process.env.PORT || "5173"),
+    cors: true,
+    https: false, // Force HTTP in development
+    proxy: {
+      // Proxy for HTTPS backend
+      "/api": {
+        target: "https://localhost:4242",
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, "/api"),
+      },
+    },
   },
   plugins: [react()],
   resolve: {
@@ -43,7 +54,7 @@ export default defineConfig({
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
     // Enable source maps for debugging
-    sourcemap: false,
+    sourcemap: true,
     // Minification options
     minify: "esbuild",
     target: "es2020",
