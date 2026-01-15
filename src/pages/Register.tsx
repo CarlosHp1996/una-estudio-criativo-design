@@ -26,15 +26,11 @@ import FacebookLoginButton from "@/components/FacebookLoginButton";
 // Form validation schema
 const registerSchema = z
   .object({
-    userName: z
+    name: z
       .string()
-      .min(1, "Nome de usuário é obrigatório")
-      .min(3, "Nome de usuário deve ter pelo menos 3 caracteres")
-      .max(30, "Nome de usuário deve ter no máximo 30 caracteres")
-      .regex(
-        /^[a-zA-Z0-9_]+$/,
-        "Nome de usuário deve conter apenas letras, números e underscore"
-      ),
+      .min(1, "Nome é obrigatório")
+      .min(2, "Nome deve ter pelo menos 2 caracteres")
+      .max(100, "Nome deve ter no máximo 100 caracteres"),
     email: z
       .string()
       .min(1, "Email é obrigatório")
@@ -47,12 +43,6 @@ const registerSchema = z
       .regex(/[a-z]/, "Senha deve conter pelo menos 1 letra minúscula")
       .regex(/[0-9]/, "Senha deve conter pelo menos 1 número"),
     confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
-    cpf: z
-      .string()
-      .min(1, "CPF é obrigatório")
-      .min(11, "CPF deve ter 11 dígitos")
-      .max(14, "CPF inválido")
-      .regex(/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/, "Formato de CPF inválido"),
     acceptTerms: z
       .boolean()
       .refine((val) => val === true, "Você deve aceitar os termos de uso"),
@@ -82,7 +72,7 @@ export default function Register() {
 
   // Form setup
   const {
-    register,
+    register: registerField,
     handleSubmit,
     formState: { errors },
     setValue,
@@ -125,21 +115,25 @@ export default function Register() {
   }, [clearError]);
 
   const onSubmit = async (data: RegisterFormData) => {
+    console.log("Form submitted with data:", data);
     try {
-      await register({
-        userName: data.userName,
+      console.log("Calling registerUser...");
+      await registerUser({
+        userName: data.name, // Map name to userName
         email: data.email,
         password: data.password,
         confirmPassword: data.confirmPassword,
-        cpf: data.cpf.replace(/\D/g, ""), // Remove formatting from CPF
+        cpf: "00000000000", // CPF with 11 digits only (no formatting)
       });
 
+      console.log("Registration successful!");
       toast({
         title: "Conta criada com sucesso!",
-        description: "Bem-vindo ao UNA Estudio Criativo!",
+        description: "Agora você pode fazer login com suas credenciais.",
       });
 
-      // Navigation will be handled by the useEffect above
+      // Redirect to login page after successful registration
+      navigate("/login", { replace: true });
     } catch (error) {
       // Error is already handled by the AuthContext and error handling utilities
       console.error("Register error:", error);
@@ -190,7 +184,7 @@ export default function Register() {
                   id="name"
                   type="text"
                   placeholder="Seu nome completo"
-                  {...register("name")}
+                  {...registerField("name")}
                   className={errors.name ? "border-red-500" : ""}
                 />
                 {errors.name && (
@@ -205,7 +199,7 @@ export default function Register() {
                   id="email"
                   type="email"
                   placeholder="seu@email.com"
-                  {...register("email")}
+                  {...registerField("email")}
                   className={errors.email ? "border-red-500" : ""}
                 />
                 {errors.email && (
@@ -221,7 +215,7 @@ export default function Register() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Sua senha"
-                    {...register("password")}
+                    {...registerField("password")}
                     className={
                       errors.password ? "border-red-500 pr-10" : "pr-10"
                     }
@@ -285,7 +279,7 @@ export default function Register() {
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirme sua senha"
-                    {...register("confirmPassword")}
+                    {...registerField("confirmPassword")}
                     className={
                       errors.confirmPassword ? "border-red-500 pr-10" : "pr-10"
                     }

@@ -16,9 +16,7 @@ export class AuthService {
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL || "https://localhost:4242/api"
-        }/Auth/login`,
+        "https://localhost:4242/api/Auth/login", // Revert to working URL
         {
           method: "POST",
           headers: {
@@ -55,15 +53,73 @@ export class AuthService {
 
   // Register new account
   static async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await apiUtils.post<AuthResponse>("/auth/register", data);
+    try {
+      console.log("AuthService.register called with:", data);
 
-    // Store token and user data
-    if (response.token) {
-      tokenManager.setToken(response.token);
-      localStorage.setItem("una_user", JSON.stringify(response.user));
+      // Send data in correct format as per CreateUserRequest
+      const requestData = {
+        name: data.userName, // Required
+        email: data.email, // Required
+        password: data.password, // Required
+        phoneNumber: null, // Optional - send null
+        cpf: null, // Optional - send null
+        gender: null, // Optional - send null
+        addresses: null, // Optional - send null
+      };
+
+      console.log("Sending request data:", requestData);
+
+      const response = await fetch(
+        "https://localhost:4242/api/Auth/create", // Correct URL from curl
+        {
+          method: "POST",
+          headers: {
+            accept: "text/plain",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestData),
+        }
+      );
+
+      console.log("Register response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Register error response:", errorData);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
+      console.log("Register response data:", responseData);
+
+      // Map CreateUserResponse to User interface
+      const backendUser = responseData.user; // UserDto from CreateUserResponse
+
+      const user: User = {
+        id: backendUser?.id || "",
+        userName: backendUser?.userName || "User",
+        email: backendUser?.email || "",
+        roles: ["User"], // Default role since UserDto doesn't have roles
+        profilePicture: backendUser?.profilePicture,
+        createdAt: new Date().toISOString(), // UserDto doesn't have createdAt
+        updatedAt: new Date().toISOString(), // UserDto doesn't have updatedAt
+      };
+
+      const authResponse: AuthResponse = {
+        token: "", // Registration doesn't return token
+        user: user,
+        success: true,
+      };
+
+      // Don't store token for registration (only login provides token)
+      // Just return user info for confirmation
+      return authResponse;
+
+      return authResponse;
+    } catch (error: any) {
+      console.error("Register error:", error);
+      throw new Error(error.message || "Registration failed");
     }
-
-    return response;
   }
 
   // Social login (Google/Facebook)
@@ -119,12 +175,12 @@ export class AuthService {
 
   // Get current user profile
   static async getProfile(): Promise<User> {
-    return await apiUtils.get<User>("/auth/profile");
+    return await apiUtils.get<User>("/Auth/profile");
   }
 
   // Update user profile
   static async updateProfile(data: UpdateProfileRequest): Promise<User> {
-    const response = await apiUtils.put<User>("/auth/profile", data);
+    const response = await apiUtils.put<User>("/Auth/profile", data);
 
     // Update stored user data
     localStorage.setItem("una_user", JSON.stringify(response));
@@ -134,7 +190,7 @@ export class AuthService {
 
   // Change password
   static async changePassword(data: ChangePasswordRequest): Promise<void> {
-    await apiUtils.post<void>("/auth/change-password", data);
+    await apiUtils.post<void>("/Auth/change-password", data);
   }
 
   // Logout (clear local storage and call logout endpoint)
@@ -143,7 +199,7 @@ export class AuthService {
       // Call logout endpoint if token exists
       const token = tokenManager.getToken();
       if (token) {
-        await apiUtils.post<void>("/auth/logout");
+        await apiUtils.post<void>("/Auth/logout");
       }
     } catch (error) {
       // Continue with logout even if API call fails

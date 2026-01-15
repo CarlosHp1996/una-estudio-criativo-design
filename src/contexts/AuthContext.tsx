@@ -236,10 +236,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const response = await AuthService.register(userData);
 
-      dispatch({
-        type: "AUTH_SUCCESS",
-        payload: { user: response.user },
-      });
+      // Registration successful but user is NOT authenticated yet
+      // User needs to login after registration
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Registration failed";

@@ -76,7 +76,7 @@ httpClient.interceptors.request.use(
     const publicEndpoints = [
       "/Auth/login",
       "/auth/login",
-      "/auth/register",
+      "/Auth/create",
       "/social-auth",
       "/auth/forgot-password",
       "/auth/reset-password",
@@ -124,10 +124,10 @@ httpClient.interceptors.response.use(
           // Unauthorized - token expired or invalid
           tokenManager.removeToken();
 
-          // Don't redirect if already on login/register pages
+          // Don't redirect if already on login/create pages
           const publicPages = [
             "/login",
-            "/register",
+            "/create",
             "/forgot-password",
             "/reset-password",
           ];
