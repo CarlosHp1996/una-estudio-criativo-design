@@ -47,6 +47,47 @@ export const tokenManager = {
       return true;
     }
   },
+
+  // Decode JWT token and extract claims
+  decodeToken: (token: string) => {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      console.log("Decoded JWT payload:", payload);
+
+      // Extract roles from claims - check common claim names
+      const roles =
+        payload[
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        ] ||
+        payload.role ||
+        payload.roles ||
+        [];
+
+      // Ensure roles is always an array
+      const rolesArray = Array.isArray(roles) ? roles : [roles];
+
+      return {
+        sub: payload.sub, // User ID
+        name:
+          payload.name ||
+          payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
+        email:
+          payload.email ||
+          payload[
+            "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+          ],
+        roles: rolesArray,
+        jti: payload.jti, // JWT ID
+        exp: payload.exp,
+        iss: payload.iss,
+        aud: payload.aud,
+        ...payload, // Include all other claims
+      };
+    } catch (error) {
+      console.error("Failed to decode JWT token:", error);
+      return null;
+    }
+  },
 };
 
 // Create axios instance with default configuration

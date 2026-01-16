@@ -154,21 +154,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
               payload: { user },
             });
 
-            // Validate session in background and refresh user data
+            // Validate session in background
             AuthService.validateSession().then((isValid) => {
               if (!isValid) {
                 dispatch({ type: "AUTH_LOGOUT" });
-              } else {
-                // Refresh user data
-                AuthService.refreshUserData().then((updatedUser) => {
-                  if (updatedUser) {
-                    dispatch({
-                      type: "UPDATE_USER",
-                      payload: { user: updatedUser },
-                    });
-                  }
-                });
               }
+              // User data is already available from login - no need to refresh
             });
           }
         }

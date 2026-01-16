@@ -32,11 +32,40 @@ export class AuthService {
       }
 
       const data = await response.json();
+      console.log("Login response data:", data);
+
+      const token = data.value?.token; // Real structure: data.value.token
+      if (!token) {
+        throw new Error("No token received from login");
+      }
+
+      // Decode JWT token to extract user claims and roles
+      const tokenClaims = tokenManager.decodeToken(token);
+      console.log("Decoded token claims:", tokenClaims);
+
+      if (!tokenClaims) {
+        throw new Error("Failed to decode authentication token");
+      }
+
       const authResponse: AuthResponse = {
-        token: data.value?.token || data.token,
-        user: data.value || data.user,
-        success: true,
+        token: token,
+        user: {
+          id: tokenClaims.sub || data.value?.id || "",
+          userName: tokenClaims.name || data.value?.name || "User",
+          email: tokenClaims.email || "",
+          roles: tokenClaims.roles || ["User"], // Extract roles from JWT claims
+          profilePicture: null, // Not available in token
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        success: data.hasSuccess || true,
       };
+
+      console.log(
+        "Final user object with roles from token:",
+        authResponse.user
+      );
+      console.log("Login message from backend:", data.value?.mensage);
 
       // Store token and user data
       if (authResponse.token) {
@@ -173,12 +202,7 @@ export class AuthService {
     return response;
   }
 
-  // Get current user profile
-  static async getProfile(): Promise<User> {
-    return await apiUtils.get<User>("/Auth/profile");
-  }
-
-  // Update user profile
+  // Update user profile (if endpoint exists)
   static async updateProfile(data: UpdateProfileRequest): Promise<User> {
     const response = await apiUtils.put<User>("/Auth/profile", data);
 
@@ -225,26 +249,41 @@ export class AuthService {
     return !tokenManager.isTokenExpired(token);
   }
 
-  // Get current user from local storage
+  // Get current user from JWT token (always fresh data)
   static getCurrentUser(): User | null {
     try {
-      const userData = localStorage.getItem("una_user");
-      return userData ? JSON.parse(userData) : null;
-    } catch {
+      const token = tokenManager.getToken();
+      if (!token) return null;
+
+      // Always decode token to get fresh user data and roles
+      const tokenClaims = tokenManager.decodeToken(token);
+      if (!tokenClaims) return null;
+
+      const user: User = {
+        id: tokenClaims.sub || "",
+        userName: tokenClaims.name || "User",
+        email: tokenClaims.email || "",
+        roles: tokenClaims.roles || ["User"],
+        profilePicture: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log("getCurrentUser - decoded user from token:", user);
+      return user;
+    } catch (error) {
+      console.error("Failed to get current user from token:", error);
       return null;
     }
   }
 
-  // Refresh user data from API
-  static async refreshUserData(): Promise<User | null> {
+  // Get stored user data (no API call needed)
+  static getStoredUser(): User | null {
     try {
-      if (!AuthService.isAuthenticated()) return null;
-
-      const user = await AuthService.getProfile();
-      localStorage.setItem("una_user", JSON.stringify(user));
-      return user;
+      const userData = localStorage.getItem("una_user");
+      return userData ? JSON.parse(userData) : null;
     } catch (error) {
-      console.error("Failed to refresh user data:", error);
+      console.error("Failed to get stored user data:", error);
       return null;
     }
   }
