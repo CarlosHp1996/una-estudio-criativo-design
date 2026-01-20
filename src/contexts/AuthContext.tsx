@@ -11,7 +11,6 @@ import type {
   RegisterRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
-  SocialAuthRequest,
   SocialUser,
 } from "@/types/api";
 import AuthService from "@/services/authService";
@@ -30,13 +29,14 @@ interface AuthContextType {
   register: (userData: RegisterRequest) => Promise<void>;
   socialLogin: (
     provider: "google" | "facebook",
-    socialUser: SocialUser
+    socialUser: SocialUser,
   ) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => Promise<void>;
   changePassword: (data: ChangePasswordRequest) => Promise<void>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
+  redirectAfterLogin: (user: User) => void;
 }
 
 // Auth State Type
@@ -154,13 +154,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
               payload: { user },
             });
 
-            // Validate session in background
-            AuthService.validateSession().then((isValid) => {
-              if (!isValid) {
-                dispatch({ type: "AUTH_LOGOUT" });
-              }
-              // User data is already available from login - no need to refresh
-            });
+            // Validate session in background (async, don't block)
+            setTimeout(() => {
+              AuthService.validateSession()
+                .then((isValid) => {
+                  if (!isValid) {
+                    dispatch({ type: "AUTH_LOGOUT" });
+                  }
+                })
+                .catch((error) => {
+                  console.error("Session validation error:", error);
+                });
+            }, 100);
+          } else {
+            AuthService.clearLocalData();
           }
         }
       } catch (error) {
@@ -242,12 +249,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Social login function
   const socialLogin = async (
     provider: "google" | "facebook",
-    socialUser: SocialUser
+    socialUser: SocialUser,
   ): Promise<void> => {
     dispatch({ type: "AUTH_START" });
 
     try {
       const response = await AuthService.socialLogin(provider, { socialUser });
+
+      if (!response.user) {
+        throw new Error("No user data received from social login");
+      }
 
       dispatch({
         type: "AUTH_SUCCESS",
@@ -256,6 +267,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Social login failed";
+      console.error(`${provider} login failed:`, errorMessage);
       dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
       handleError(error);
       throw error;
@@ -320,13 +332,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!state.isAuthenticated) return;
 
     try {
-      const updatedUser = await AuthService.refreshUserData();
+      // Validate current session instead of fetching new data
+      const isValid = await AuthService.validateSession();
 
-      if (updatedUser) {
+      if (!isValid) {
+        // Session is invalid, logout user
+        await logout();
+        return;
+      }
+
+      // Session is valid, get current user data from token/storage
+      const currentUser = AuthService.getCurrentUser();
+
+      if (currentUser) {
         dispatch({
           type: "UPDATE_USER",
-          payload: { user: updatedUser },
+          payload: { user: currentUser },
         });
+      } else {
+        // No valid user data found
+        await logout();
       }
     } catch (error) {
       console.error("Failed to refresh user data:", error);
@@ -338,6 +363,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Clear error
   const clearError = (): void => {
     dispatch({ type: "CLEAR_ERROR" });
+  };
+
+  // Redirect after login based on user role
+  const redirectAfterLogin = (user: User): void => {
+    if (user.roles?.includes("Admin") || user.roles?.includes("admin")) {
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 500);
+    } else {
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 500);
+    }
   };
 
   // Context value
@@ -357,6 +395,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     changePassword,
     refreshUser,
     clearError,
+    redirectAfterLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

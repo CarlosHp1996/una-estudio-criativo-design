@@ -118,13 +118,13 @@ httpClient.interceptors.request.use(
       "/Auth/login",
       "/auth/login",
       "/Auth/create",
-      "/social-auth",
+      "/SocialAuth",
       "/auth/forgot-password",
       "/auth/reset-password",
     ];
 
     const isPublicEndpoint = publicEndpoints.some((endpoint) =>
-      config.url?.includes(endpoint)
+      config.url?.includes(endpoint),
     );
 
     if (token && !isPublicEndpoint) {
@@ -145,7 +145,7 @@ httpClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response interceptor for error handling and token management
@@ -207,7 +207,7 @@ httpClient.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // Utility functions for common API operations
@@ -222,7 +222,7 @@ export const apiUtils = {
   post: async <T, D = any>(
     url: string,
     data?: D,
-    config?: object
+    config?: object,
   ): Promise<T> => {
     const response = await httpClient.post<T>(url, data, config);
     return response.data;
@@ -232,7 +232,7 @@ export const apiUtils = {
   put: async <T, D = any>(
     url: string,
     data?: D,
-    config?: object
+    config?: object,
   ): Promise<T> => {
     const response = await httpClient.put<T>(url, data, config);
     return response.data;
@@ -248,7 +248,7 @@ export const apiUtils = {
   upload: async <T>(
     url: string,
     file: File,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
   ): Promise<T> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -260,7 +260,7 @@ export const apiUtils = {
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const progress = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
+            (progressEvent.loaded * 100) / progressEvent.total,
           );
           onProgress(progress);
         }

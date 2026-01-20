@@ -39,7 +39,15 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading, error, isAuthenticated, clearError } = useAuth();
+  const {
+    login,
+    isLoading,
+    error,
+    isAuthenticated,
+    clearError,
+    redirectAfterLogin,
+    user,
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,10 +70,13 @@ export default function Login() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(from, { replace: true });
+    if (isAuthenticated && user) {
+      console.log(
+        "Login.tsx - User is already authenticated, using role-based redirection",
+      );
+      redirectAfterLogin(user);
     }
-  }, [isAuthenticated, navigate, from]);
+  }, [isAuthenticated, user, redirectAfterLogin]);
 
   // Clear error when component unmounts or when user starts typing
   useEffect(() => {
@@ -84,7 +95,8 @@ export default function Login() {
         description: "Bem-vindo de volta!",
       });
 
-      // Navigation will be handled by the useEffect above
+      // Role-based redirection will be handled by the useEffect above
+      // since login success updates isAuthenticated and user
     } catch (error) {
       // Error is already handled by the AuthContext and error handling utilities
       console.error("Login error:", error);

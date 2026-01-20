@@ -24,7 +24,7 @@ export class AuthService {
             Accept: "application/json",
           },
           body: JSON.stringify(credentials),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -32,16 +32,14 @@ export class AuthService {
       }
 
       const data = await response.json();
-      console.log("Login response data:", data);
 
-      const token = data.value?.token; // Real structure: data.value.token
+      const token = data.value?.token;
       if (!token) {
         throw new Error("No token received from login");
       }
 
       // Decode JWT token to extract user claims and roles
       const tokenClaims = tokenManager.decodeToken(token);
-      console.log("Decoded token claims:", tokenClaims);
 
       if (!tokenClaims) {
         throw new Error("Failed to decode authentication token");
@@ -53,19 +51,13 @@ export class AuthService {
           id: tokenClaims.sub || data.value?.id || "",
           userName: tokenClaims.name || data.value?.name || "User",
           email: tokenClaims.email || "",
-          roles: tokenClaims.roles || ["User"], // Extract roles from JWT claims
-          profilePicture: null, // Not available in token
+          roles: tokenClaims.roles || ["User"],
+          profilePicture: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
         success: data.hasSuccess || true,
       };
-
-      console.log(
-        "Final user object with roles from token:",
-        authResponse.user
-      );
-      console.log("Login message from backend:", data.value?.mensage);
 
       // Store token and user data
       if (authResponse.token) {
@@ -83,70 +75,52 @@ export class AuthService {
   // Register new account
   static async register(data: RegisterRequest): Promise<AuthResponse> {
     try {
-      console.log("AuthService.register called with:", data);
-
       // Send data in correct format as per CreateUserRequest
       const requestData = {
-        name: data.userName, // Required
-        email: data.email, // Required
-        password: data.password, // Required
-        phoneNumber: null, // Optional - send null
-        cpf: null, // Optional - send null
-        gender: null, // Optional - send null
-        addresses: null, // Optional - send null
+        name: data.userName,
+        email: data.email,
+        password: data.password,
+        phoneNumber: null,
+        cpf: null,
+        gender: null,
+        addresses: null,
       };
 
-      console.log("Sending request data:", requestData);
-
-      const response = await fetch(
-        "https://localhost:4242/api/Auth/create", // Correct URL from curl
-        {
-          method: "POST",
-          headers: {
-            accept: "text/plain",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestData),
-        }
-      );
-
-      console.log("Register response status:", response.status);
+      const response = await fetch("https://localhost:4242/api/Auth/create", {
+        method: "POST",
+        headers: {
+          accept: "text/plain",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error("Register error response:", errorData);
+        console.error("Register error:", errorData);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const responseData = await response.json();
-      console.log("Register response data:", responseData);
-
-      // Map CreateUserResponse to User interface
-      const backendUser = responseData.user; // UserDto from CreateUserResponse
+      const backendUser = responseData.user;
 
       const user: User = {
         id: backendUser?.id || "",
         userName: backendUser?.userName || "User",
         email: backendUser?.email || "",
-        roles: ["User"], // Default role since UserDto doesn't have roles
+        roles: ["User"],
         profilePicture: backendUser?.profilePicture,
-        createdAt: new Date().toISOString(), // UserDto doesn't have createdAt
-        updatedAt: new Date().toISOString(), // UserDto doesn't have updatedAt
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
 
-      const authResponse: AuthResponse = {
-        token: "", // Registration doesn't return token
+      return {
+        token: "",
         user: user,
         success: true,
       };
-
-      // Don't store token for registration (only login provides token)
-      // Just return user info for confirmation
-      return authResponse;
-
-      return authResponse;
     } catch (error: any) {
-      console.error("Register error:", error);
+      console.error("Registration failed:", error);
       throw new Error(error.message || "Registration failed");
     }
   }
@@ -154,52 +128,295 @@ export class AuthService {
   // Social login (Google/Facebook)
   static async socialLogin(
     provider: "google" | "facebook",
-    socialData: SocialAuthRequest
+    socialData: SocialAuthRequest,
   ): Promise<SocialAuthResponse> {
-    const response = await apiUtils.post<SocialAuthResponse>(
-      `/social-auth/${provider}`,
-      socialData
-    );
+    try {
+      const response = await fetch(
+        `https://localhost:4242/api/SocialAuth/${provider}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(socialData),
+        },
+      );
 
-    // Store token and user data
-    if (response.jwtToken) {
-      tokenManager.setToken(response.jwtToken);
-      localStorage.setItem("una_user", JSON.stringify(response.user));
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`${provider} login error:`, errorData);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Extract token from SocialAuthResponse structure
+      const token = data.JwtToken || data.jwtToken;
+
+      if (!token) {
+        console.error(`${provider} login - No token in response:`, data);
+        throw new Error("No token received from social login");
+      }
+
+      // Decode JWT token to extract user claims and roles
+      const tokenClaims = tokenManager.decodeToken(token);
+
+      if (!tokenClaims) {
+        throw new Error(
+          "Failed to decode authentication token from social login",
+        );
+      }
+
+      // Create user object from JWT claims combined with backend User data
+      const user = {
+        id: tokenClaims.sub || data.User?.id || "",
+        userName: tokenClaims.name || data.User?.userName || "User",
+        email: tokenClaims.email || data.User?.email || "",
+        roles: tokenClaims.roles || ["User"],
+        profilePicture: data.User?.profilePicture || null,
+        createdAt: data.User?.createdAt || new Date().toISOString(),
+        updatedAt: data.User?.updatedAt || new Date().toISOString(),
+      };
+
+      const socialAuthResponse: SocialAuthResponse = {
+        jwtToken: token,
+        user: user,
+        success: true,
+      };
+
+      // Store token and user data
+      if (socialAuthResponse.jwtToken) {
+        tokenManager.setToken(socialAuthResponse.jwtToken);
+        localStorage.setItem(
+          "una_user",
+          JSON.stringify(socialAuthResponse.user),
+        );
+      }
+
+      return socialAuthResponse;
+    } catch (error: any) {
+      console.error(`${provider} login failed:`, error);
+      throw new Error(error.message || `${provider} login failed`);
     }
-
-    return response;
   }
 
   // Google login with access token
   static async googleLogin(accessToken: string): Promise<SocialAuthResponse> {
-    const response = await apiUtils.post<SocialAuthResponse>(
-      "/social-auth/google",
-      { accessToken }
-    );
+    try {
+      if (!accessToken || accessToken.trim() === "") {
+        throw new Error("Access token is empty or undefined");
+      }
 
-    // Store token and user data
-    if (response.jwtToken) {
-      tokenManager.setToken(response.jwtToken);
-      localStorage.setItem("una_user", JSON.stringify(response.user));
+      // Get user info from Google API
+      const googleUserResponse = await fetch(
+        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (!googleUserResponse.ok) {
+        throw new Error(
+          `Failed to fetch Google user info: ${googleUserResponse.status}`,
+        );
+      }
+
+      const googleUserData = await googleUserResponse.json();
+
+      // Structure data as expected by backend
+      const requestData = {
+        socialUser: {
+          providerId: googleUserData.id,
+          provider: "google",
+          email: googleUserData.email,
+          name: googleUserData.name,
+          picture: googleUserData.picture || null,
+        },
+        returnUrl: null,
+      };
+
+      // Send to backend
+      const response = await fetch(
+        "https://localhost:4242/api/SocialAuth/google",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(requestData),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Google login error:", errorData);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Extract token from SocialAuthResponse structure
+      const token = data.JwtToken || data.jwtToken;
+
+      if (!token) {
+        console.error("Google login - No token in response:", data);
+        throw new Error("No token received from Google login");
+      }
+
+      // Decode JWT token to extract user claims and roles
+      const tokenClaims = tokenManager.decodeToken(token);
+
+      if (!tokenClaims) {
+        throw new Error(
+          "Failed to decode authentication token from Google login",
+        );
+      }
+
+      // Create user object from JWT claims combined with backend User data
+      const user = {
+        id: tokenClaims.sub || data.User?.id || "",
+        userName: tokenClaims.name || data.User?.userName || "User",
+        email: tokenClaims.email || data.User?.email || "",
+        roles: tokenClaims.roles || ["User"],
+        profilePicture: data.User?.profilePicture || null,
+        createdAt: data.User?.createdAt || new Date().toISOString(),
+        updatedAt: data.User?.updatedAt || new Date().toISOString(),
+      };
+
+      const socialAuthResponse: SocialAuthResponse = {
+        jwtToken: token,
+        user: user,
+        success: true,
+      };
+
+      // Store token and user data
+      if (socialAuthResponse.jwtToken) {
+        tokenManager.setToken(socialAuthResponse.jwtToken);
+        localStorage.setItem(
+          "una_user",
+          JSON.stringify(socialAuthResponse.user),
+        );
+      }
+
+      return socialAuthResponse;
+    } catch (error: any) {
+      console.error("Google login failed:", error);
+      throw new Error(error.message || "Google login failed");
     }
-
-    return response;
   }
 
   // Facebook login with access token
   static async facebookLogin(accessToken: string): Promise<SocialAuthResponse> {
-    const response = await apiUtils.post<SocialAuthResponse>(
-      "/social-auth/facebook",
-      { accessToken }
-    );
+    try {
+      if (!accessToken || accessToken.trim() === "") {
+        throw new Error("Access token is empty or undefined");
+      }
 
-    // Store token and user data
-    if (response.jwtToken) {
-      tokenManager.setToken(response.jwtToken);
-      localStorage.setItem("una_user", JSON.stringify(response.user));
+      // Get user info from Facebook API
+      const facebookUserResponse = await fetch(
+        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`,
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (!facebookUserResponse.ok) {
+        throw new Error(
+          `Failed to fetch Facebook user info: ${facebookUserResponse.status}`,
+        );
+      }
+
+      const facebookUserData = await facebookUserResponse.json();
+
+      // Structure data as expected by backend
+      const requestData = {
+        socialUser: {
+          providerId: facebookUserData.id,
+          provider: "facebook",
+          email: facebookUserData.email,
+          name: facebookUserData.name,
+          picture: facebookUserData.picture?.data?.url || null,
+        },
+        returnUrl: null,
+      };
+
+      // Send to backend
+      const response = await fetch(
+        "https://localhost:4242/api/SocialAuth/facebook",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(requestData),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Facebook login error:", errorData);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Extract token from SocialAuthResponse structure
+      const token = data.JwtToken || data.jwtToken;
+
+      if (!token) {
+        console.error("Facebook login - No token in response:", data);
+        throw new Error("No token received from Facebook login");
+      }
+
+      // Decode JWT token to extract user claims and roles
+      const tokenClaims = tokenManager.decodeToken(token);
+
+      if (!tokenClaims) {
+        throw new Error(
+          "Failed to decode authentication token from Facebook login",
+        );
+      }
+
+      // Create user object from JWT claims combined with backend User data
+      const user = {
+        id: tokenClaims.sub || data.User?.id || "",
+        userName: tokenClaims.name || data.User?.userName || "User",
+        email: tokenClaims.email || data.User?.email || "",
+        roles: tokenClaims.roles || ["User"],
+        profilePicture: data.User?.profilePicture || null,
+        createdAt: data.User?.createdAt || new Date().toISOString(),
+        updatedAt: data.User?.updatedAt || new Date().toISOString(),
+      };
+
+      const socialAuthResponse: SocialAuthResponse = {
+        jwtToken: token,
+        user: user,
+        success: true,
+      };
+
+      // Store token and user data
+      if (socialAuthResponse.jwtToken) {
+        tokenManager.setToken(socialAuthResponse.jwtToken);
+        localStorage.setItem(
+          "una_user",
+          JSON.stringify(socialAuthResponse.user),
+        );
+      }
+
+      return socialAuthResponse;
+    } catch (error: any) {
+      console.error("Facebook login failed:", error);
+      throw new Error(error.message || "Facebook login failed");
     }
-
-    return response;
   }
 
   // Update user profile (if endpoint exists)
@@ -292,12 +509,35 @@ export class AuthService {
   static async validateSession(): Promise<boolean> {
     try {
       if (!AuthService.isAuthenticated()) {
+        console.log("validateSession - User not authenticated");
         AuthService.clearLocalData();
         return false;
       }
 
-      // Try to fetch fresh user data to validate token
-      await AuthService.refreshUserData();
+      // Check if token is valid by trying to decode it
+      const token = tokenManager.getToken();
+      if (!token) {
+        console.log("validateSession - No token found");
+        AuthService.clearLocalData();
+        return false;
+      }
+
+      // Try to decode token to validate it's still valid
+      const claims = tokenManager.decodeToken(token);
+      if (!claims) {
+        console.log("validateSession - Token decode failed");
+        AuthService.clearLocalData();
+        return false;
+      }
+
+      // Check if token is expired (if exp claim is present)
+      if (claims.exp && claims.exp * 1000 < Date.now()) {
+        console.log("validateSession - Token expired");
+        AuthService.clearLocalData();
+        return false;
+      }
+
+      console.log("validateSession - Session is valid");
       return true;
     } catch (error) {
       console.error("Session validation failed:", error);

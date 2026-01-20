@@ -2,7 +2,6 @@ import React from "react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { AuthService } from "@/services/authService";
 import { parseApiError } from "@/lib/errorHandling";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -22,7 +21,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   children = "Entrar com Google",
   disabled = false,
 }) => {
-  const { login } = useAuth();
+  const { socialLogin, redirectAfterLogin } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -31,21 +30,82 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       try {
         setIsLoading(true);
 
-        // Calls the backend endpoint to validate the Google token.
-        const response = await AuthService.googleLogin(
-          tokenResponse.access_token
+        console.log("GoogleLoginButton - Full tokenResponse:", tokenResponse);
+        console.log(
+          "GoogleLoginButton - Access token:",
+          tokenResponse.access_token,
+        );
+        console.log(
+          "GoogleLoginButton - Access token type:",
+          typeof tokenResponse.access_token,
         );
 
-        // Updates the authentication context directly
-        // The AuthContext will be automatically notified via localStorage/sessionStorage
+        if (!tokenResponse.access_token) {
+          throw new Error("No access token received from Google");
+        }
+
+        // Get user info from Google API first
+        console.log(
+          "GoogleLoginButton - Fetching user info from Google API...",
+        );
+        const googleUserResponse = await fetch(
+          `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokenResponse.access_token}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+          },
+        );
+
+        if (!googleUserResponse.ok) {
+          throw new Error(
+            `Failed to fetch Google user info: ${googleUserResponse.status}`,
+          );
+        }
+
+        const googleUserData = await googleUserResponse.json();
+        console.log("GoogleLoginButton - Google user data:", googleUserData);
+
+        // Create SocialUser object
+        const socialUser = {
+          providerId: googleUserData.id,
+          provider: "google",
+          email: googleUserData.email,
+          name: googleUserData.name,
+          picture: googleUserData.picture || null,
+        };
+
+        // Use the AuthContext socialLogin method
+        await socialLogin("google", socialUser);
+        console.log("GoogleLoginButton - Social login completed successfully");
+
+        // Show success toast
         toast({
           title: "Login realizado com sucesso",
-          description: `Bem-vindo(a), ${response.user?.nome || "usuário"}!`,
+          description: `Bem-vindo(a), ${googleUserData.name}!`,
           variant: "default",
         });
 
-        // Redirects after successful login
-        window.location.href = "/dashboard";
+        // Give time for context to update before redirecting
+        setTimeout(() => {
+          // Get updated user data from localStorage to check roles
+          const userData = localStorage.getItem("una_user");
+          if (userData) {
+            const user = JSON.parse(userData);
+            console.log(
+              "GoogleLoginButton - Using context redirectAfterLogin for user:",
+              user,
+            );
+            redirectAfterLogin(user);
+          } else {
+            // Fallback to home if no user data
+            console.log(
+              "GoogleLoginButton - No user data found, redirecting to home...",
+            );
+            window.location.href = "/";
+          }
+        }, 200);
       } catch (error: any) {
         console.error("Erro no login com Google:", error);
 

@@ -25,29 +25,28 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
   token: string;
-  expiration: string;
   user: User;
+  success: boolean;
 }
 
 export interface SocialUser {
-  provider: "google" | "facebook";
   providerId: string;
+  provider: string; // "google" or "facebook"  
   email: string;
   name: string;
-  profilePicture?: string;
-  accessToken: string;
+  picture?: string;
 }
 
 export interface SocialAuthRequest {
   socialUser: SocialUser;
+  returnUrl?: string;
 }
 
 export interface SocialAuthResponse {
   jwtToken: string;
-  expiration: string;
-  isNewUser: boolean;
-  message: string;
   user: User;
+  success: boolean;
+}
 }
 
 // Simplified Google login request (just access token)

@@ -1,10 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { AuthService } from "@/services/authService";
 import { parseApiError } from "@/lib/errorHandling";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+
+// Declare Facebook types
+declare global {
+  interface Window {
+    FB: any;
+    fbAsyncInit: () => void;
+  }
+}
 
 interface FacebookLoginButtonProps {
   variant?: "default" | "outline";
@@ -21,38 +28,140 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
   children = "Entrar com Facebook",
   disabled = false,
 }) => {
-  const { login } = useAuth();
+  const { socialLogin, redirectAfterLogin } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [fbReady, setFbReady] = React.useState(false);
+
+  useEffect(() => {
+    // Initialize Facebook SDK
+    const initializeFacebookSDK = () => {
+      if (window.FB) {
+        setFbReady(true);
+        return;
+      }
+
+      // Load Facebook SDK
+      window.fbAsyncInit = function () {
+        window.FB.init({
+          appId: import.meta.env.VITE_FACEBOOK_APP_ID,
+          cookie: true,
+          xfbml: true,
+          version: "v19.0",
+        });
+        setFbReady(true);
+      };
+
+      // Load SDK script
+      if (!document.getElementById("facebook-jssdk")) {
+        const script = document.createElement("script");
+        script.id = "facebook-jssdk";
+        script.src = "https://connect.facebook.net/pt_BR/sdk.js";
+        document.body.appendChild(script);
+      }
+    };
+
+    initializeFacebookSDK();
+  }, []);
 
   const handleFacebookLogin = async () => {
+    if (!fbReady || !window.FB) {
+      toast({
+        title: "SDK não carregado",
+        description: "Aguarde um momento e tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
 
-      // TODO: Implement Facebook SDK when necessary
-      // The keys are already configured: VITE_FACEBOOK_APP_ID=1551324589510448
+      // Login with Facebook
+      window.FB.login(
+        (response: any) => {
+          if (response.authResponse) {
+            console.log("Facebook login successful:", response);
 
-      toast({
-        title: "Em desenvolvimento",
-        description:
-          "Login com Facebook será implementado em breve. Chaves já configuradas!",
-        variant: "default",
-      });
+            // Get user info
+            window.FB.api(
+              "/me",
+              { fields: "id,name,email,picture" },
+              async (userInfo: any) => {
+                try {
+                  console.log("Facebook user info:", userInfo);
 
-      console.log(
-        "Facebook App ID disponível:",
-        import.meta.env.VITE_FACEBOOK_APP_ID
+                  // Create SocialUser object
+                  const socialUser = {
+                    providerId: userInfo.id,
+                    provider: "facebook",
+                    email: userInfo.email,
+                    name: userInfo.name,
+                    picture: userInfo.picture?.data?.url || null,
+                  };
+
+                  // Use the AuthContext socialLogin method
+                  await socialLogin("facebook", socialUser);
+
+                  toast({
+                    title: "Login realizado com sucesso",
+                    description: `Bem-vindo(a), ${userInfo.name}!`,
+                    variant: "default",
+                  });
+
+                  // Give time for context to update before redirecting
+                  setTimeout(() => {
+                    // Get updated user data from localStorage to check roles
+                    const userData = localStorage.getItem("una_user");
+                    if (userData) {
+                      const user = JSON.parse(userData);
+                      console.log(
+                        "FacebookLoginButton - Using context redirectAfterLogin for user:",
+                        user,
+                      );
+                      redirectAfterLogin(user);
+                    } else {
+                      // Fallback to home if no user data
+                      console.log(
+                        "FacebookLoginButton - No user data found, redirecting to home...",
+                      );
+                      window.location.href = "/";
+                    }
+                  }, 200);
+                } catch (error: any) {
+                  console.error(
+                    "Erro no processamento do login Facebook:",
+                    error,
+                  );
+                  const errorMessage = parseApiError(error).message;
+                  toast({
+                    title: "Erro no login com Facebook",
+                    description: errorMessage,
+                    variant: "destructive",
+                  });
+                }
+              },
+            );
+          } else {
+            console.log("Facebook login cancelled.");
+            toast({
+              title: "Login cancelado",
+              description: "O login com Facebook foi cancelado.",
+              variant: "default",
+            });
+          }
+          setIsLoading(false);
+        },
+        { scope: "email" },
       );
     } catch (error: any) {
       console.error("Erro no login com Facebook:", error);
-
       const errorMessage = parseApiError(error).message;
       toast({
         title: "Erro no login com Facebook",
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
@@ -64,7 +173,7 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
       size={size}
       className={`w-full ${className}`}
       onClick={handleFacebookLogin}
-      disabled={disabled || isLoading}
+      disabled={disabled || isLoading || !fbReady}
     >
       {isLoading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
