@@ -76,7 +76,7 @@ export class AuthAPI {
       return response;
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Registration failed"
+        error instanceof Error ? error.message : "Registration failed",
       );
     }
   }
@@ -84,7 +84,16 @@ export class AuthAPI {
   // POST /api/Auth/logout
   static async logout(): Promise<void> {
     try {
-      await apiClient.post("/Auth/logout");
+      const token = apiClient.getAuthToken() || "";
+      await apiClient.post(
+        "/Auth/logout",
+        { token },
+        {
+          headers: {
+            Accept: "text/plain",
+          },
+        },
+      );
     } catch (error) {
       // Even if the API call fails, clear local token
       console.error("Logout API call failed:", error);
@@ -98,7 +107,7 @@ export class AuthAPI {
   static async getUserById(userId: string): Promise<User> {
     try {
       const response = await apiClient.get<ApiResponse<User>>(
-        `/Auth/get/${userId}`
+        `/Auth/get/${userId}`,
       );
 
       if (!response.success || !response.data) {
@@ -108,7 +117,7 @@ export class AuthAPI {
       return response.data;
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Failed to fetch user"
+        error instanceof Error ? error.message : "Failed to fetch user",
       );
     }
   }
@@ -141,7 +150,7 @@ export class AuthAPI {
 
       const response = await apiClient.put<ApiResponse<User>>(
         "/Auth/update",
-        data
+        data,
       );
 
       if (!response.success || !response.data) {
@@ -151,7 +160,7 @@ export class AuthAPI {
       return response.data;
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Profile update failed"
+        error instanceof Error ? error.message : "Profile update failed",
       );
     }
   }
@@ -160,7 +169,7 @@ export class AuthAPI {
   static async forgotPassword(email: string): Promise<void> {
     try {
       const response = await apiClient.post<ApiResponse>(
-        `/Auth/forgout-password?email=${encodeURIComponent(email)}`
+        `/Auth/forgout-password?email=${encodeURIComponent(email)}`,
       );
 
       if (!response.success) {
@@ -168,7 +177,9 @@ export class AuthAPI {
       }
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Password reset request failed"
+        error instanceof Error
+          ? error.message
+          : "Password reset request failed",
       );
     }
   }
@@ -183,7 +194,7 @@ export class AuthAPI {
           token: data.token,
           newPassword: data.newPassword,
           confirmPassword: data.confirmPassword,
-        }
+        },
       );
 
       if (!response.success) {
@@ -191,7 +202,7 @@ export class AuthAPI {
       }
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Password reset failed"
+        error instanceof Error ? error.message : "Password reset failed",
       );
     }
   }
@@ -218,7 +229,7 @@ export class AuthAPI {
       }
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Password change failed"
+        error instanceof Error ? error.message : "Password change failed",
       );
     }
   }
@@ -227,7 +238,7 @@ export class AuthAPI {
   static async deleteAccount(userId: string): Promise<void> {
     try {
       const response = await apiClient.delete<ApiResponse>(
-        `/Auth/delete/${userId}`
+        `/Auth/delete/${userId}`,
       );
 
       if (!response.success) {
@@ -238,7 +249,7 @@ export class AuthAPI {
       apiClient.clearAuthToken();
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Account deletion failed"
+        error instanceof Error ? error.message : "Account deletion failed",
       );
     }
   }
@@ -257,7 +268,7 @@ export class AuthAPI {
       return response.data;
     } catch (error) {
       throw new Error(
-        error instanceof Error ? error.message : "Failed to refresh user data"
+        error instanceof Error ? error.message : "Failed to refresh user data",
       );
     }
   }

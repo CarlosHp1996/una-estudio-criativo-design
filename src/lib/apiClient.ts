@@ -58,22 +58,23 @@ export class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
 
+    // Merge options safely so headers from options don't overwrite our defaults
     const config: RequestInit = {
+      ...options,
       headers: {
         "Content-Type": "application/json",
-        ...options.headers,
+        ...(options.headers as Record<string, string> | undefined),
       },
-      ...options,
     };
 
-    // Add auth token if available
+    // Add auth token if available (preserve existing headers)
     if (this.token) {
       config.headers = {
-        ...config.headers,
+        ...(config.headers as Record<string, string> | undefined),
         Authorization: `Bearer ${this.token}`,
       };
     }
@@ -109,18 +110,32 @@ export class ApiClient {
     return this.request<T>(endpoint, { method: "GET" });
   }
 
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
+  async post<T>(
+    endpoint: string,
+    data?: unknown,
+    options: RequestInit = {},
+  ): Promise<T> {
+    const postOptions: RequestInit = {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-    });
+      ...options,
+    };
+
+    return this.request<T>(endpoint, postOptions);
   }
 
-  async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
+  async put<T>(
+    endpoint: string,
+    data?: unknown,
+    options: RequestInit = {},
+  ): Promise<T> {
+    const putOptions: RequestInit = {
       method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
-    });
+      ...options,
+    };
+
+    return this.request<T>(endpoint, putOptions);
   }
 
   async delete<T>(endpoint: string): Promise<T> {

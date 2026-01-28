@@ -440,7 +440,15 @@ export class AuthService {
       // Call logout endpoint if token exists
       const token = tokenManager.getToken();
       if (token) {
-        await apiUtils.post<void>("/Auth/logout");
+        await apiUtils.post<void>(
+          "/Auth/logout",
+          { token },
+          {
+            headers: {
+              Accept: "text/plain",
+            },
+          },
+        );
       }
     } catch (error) {
       // Continue with logout even if API call fails
