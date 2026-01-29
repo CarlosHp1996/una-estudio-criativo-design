@@ -51,21 +51,16 @@ import {
   Edit,
   Trash2,
   Filter,
-  Download,
-  Upload,
   AlertTriangle,
-  Eye,
-  MoreHorizontal,
 } from "lucide-react";
 import { AdminProductService } from "@/services/adminProductService";
-import { Product, ProductsResponse, Category } from "@/types/api";
+import { Product, EnumCategory } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -80,7 +75,6 @@ export function AdminProductsPage() {
 
   useEffect(() => {
     loadProducts();
-    loadCategories();
   }, [currentPage, categoryFilter, stockFilter]);
 
   const loadProducts = async () => {
@@ -93,31 +87,39 @@ export function AdminProductsPage() {
       if (stockFilter === "in_stock") filters.inStock = true;
       if (stockFilter === "out_of_stock") filters.inStock = false;
 
-      const response: ProductsResponse =
-        await AdminProductService.getAllProducts(
-          currentPage,
-          pageSize,
-          filters
-        );
+      const response = await AdminProductService.getAllProducts(
+        currentPage,
+        pageSize,
+        filters,
+      );
 
-      setProducts(response.items);
-      setTotalPages(response.totalPages);
-      setTotalItems(response.totalItems);
+      const productsData = response.value.products;
+
+      // ✅ Normaliza os produtos para adicionar campos de compatibilidade
+      const normalizedProducts = productsData.map((product) => ({
+        ...product,
+        // Adiciona campos de compatibilidade
+        inventory: {
+          quantity: product.stockQuantity,
+          minStock: 10, // Valor padrão, ajuste conforme necessário
+          isInStock: product.stockQuantity > 0,
+        },
+        images: product.imageUrl ? [product.imageUrl] : [],
+        category:
+          product.attributes && product.attributes.length > 0
+            ? product.attributes[0].category
+            : undefined,
+      }));
+
+      setProducts(normalizedProducts);
+      setTotalPages(response.value.pagination.totalPages);
+      setTotalItems(response.value.pagination.totalItems);
     } catch (error: any) {
       console.error("Failed to load products:", error);
       const errorMessage = parseApiError(error).message;
       toast.error(`Erro ao carregar produtos: ${errorMessage}`);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadCategories = async () => {
-    try {
-      const categoriesData = await AdminProductService.getCategories();
-      setCategories(categoriesData);
-    } catch (error: any) {
-      console.error("Failed to load categories:", error);
     }
   };
 
@@ -146,7 +148,7 @@ export function AdminProductsPage() {
     try {
       await AdminProductService.bulkDeleteProducts(selectedProducts);
       toast.success(
-        `${selectedProducts.length} produto(s) deletado(s) com sucesso`
+        `${selectedProducts.length} produto(s) deletado(s) com sucesso`,
       );
       setSelectedProducts([]);
       loadProducts();
@@ -164,8 +166,9 @@ export function AdminProductsPage() {
   };
 
   const getStockStatus = (product: Product) => {
-    if (!product.inventory.isInStock) return "out_of_stock";
-    if (product.inventory.quantity <= product.inventory.minStock)
+    if (!product.inventory?.isInStock || product.stockQuantity === 0)
+      return "out_of_stock";
+    if (product.stockQuantity <= (product.inventory?.minStock || 10))
       return "low_stock";
     return "in_stock";
   };
@@ -194,7 +197,7 @@ export function AdminProductsPage() {
     setSelectedProducts((prev) =>
       prev.includes(productId)
         ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
+        : [...prev, productId],
     );
   };
 
@@ -204,6 +207,22 @@ export function AdminProductsPage() {
     } else {
       setSelectedProducts(products.map((p) => p.id));
     }
+  };
+
+  const getProductCategory = (product: Product): string => {
+    if (product.category) {
+      return typeof product.category === "string"
+        ? product.category
+        : EnumCategory[product.category];
+    }
+    if (
+      product.attributes &&
+      product.attributes.length > 0 &&
+      product.attributes[0].category
+    ) {
+      return product.attributes[0].category;
+    }
+    return "Sem categoria";
   };
 
   return (
@@ -222,62 +241,51 @@ export function AdminProductsPage() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filtros e Busca
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <form onSubmit={handleSearch} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Input
-                  placeholder="Buscar produtos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar produtos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-
-              <div>
-                <Select
-                  value={categoryFilter}
-                  onValueChange={setCategoryFilter}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as categorias</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        {category.name}
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas Categorias</SelectItem>
+                  {Object.entries(EnumCategory)
+                    .filter(([k, v]) => isNaN(Number(k)))
+                    .map(([key, _]) => (
+                      <SelectItem key={key} value={key}>
+                        {key}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Select value={stockFilter} onValueChange={setStockFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status do Estoque" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="in_stock">Em Estoque</SelectItem>
-                    <SelectItem value="low_stock">Estoque Baixo</SelectItem>
-                    <SelectItem value="out_of_stock">Sem Estoque</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Button type="submit" variant="outline" className="w-full">
-                <Search className="h-4 w-4 mr-2" />
-                Buscar
+                </SelectContent>
+              </Select>
+              <Select value={stockFilter} onValueChange={setStockFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Status de Estoque" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="in_stock">Em Estoque</SelectItem>
+                  <SelectItem value="low_stock">Estoque Baixo</SelectItem>
+                  <SelectItem value="out_of_stock">Sem Estoque</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit">
+                <Filter className="h-4 w-4 mr-2" />
+                Filtrar
               </Button>
             </div>
           </form>
@@ -287,12 +295,21 @@ export function AdminProductsPage() {
       {/* Bulk Actions */}
       {selectedProducts.length > 0 && (
         <Card>
-          <CardContent className="pt-6">
+          <CardContent className="py-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">
-                {selectedProducts.length} produto(s) selecionado(s)
-              </span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">
+                  {selectedProducts.length} selecionado(s)
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedProducts([])}
+                >
+                  Limpar seleção
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm">
@@ -302,7 +319,7 @@ export function AdminProductsPage() {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar Deleção</AlertDialogTitle>
+                      <AlertDialogTitle>Deletar Produtos</AlertDialogTitle>
                       <AlertDialogDescription>
                         Tem certeza que deseja deletar {selectedProducts.length}{" "}
                         produto(s)? Esta ação não pode ser desfeita.
@@ -393,7 +410,9 @@ export function AdminProductsPage() {
                           <div className="flex items-center gap-3">
                             <img
                               src={
-                                product.images[0] || "/placeholder-product.png"
+                                product.imageUrl ||
+                                product.images?.[0] ||
+                                "/placeholder-product.png"
                               }
                               alt={product.name}
                               className="w-10 h-10 rounded-md object-cover bg-gray-100"
@@ -407,15 +426,19 @@ export function AdminProductsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{product.category}</Badge>
+                          <Badge variant="outline">
+                            {getProductCategory(product)}
+                          </Badge>
                         </TableCell>
                         <TableCell>R$ {product.price.toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div>{product.inventory.quantity} unidades</div>
-                            <div className="text-gray-500">
-                              Mín: {product.inventory.minStock}
-                            </div>
+                            <div>{product.stockQuantity} unidades</div>
+                            {product.inventory?.minStock && (
+                              <div className="text-gray-500">
+                                Mín: {product.inventory.minStock}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>{getStockBadge(product)}</TableCell>
@@ -491,7 +514,7 @@ export function AdminProductsPage() {
                               {page}
                             </PaginationLink>
                           </PaginationItem>
-                        )
+                        ),
                       )}
 
                       {currentPage < totalPages && (
@@ -518,7 +541,6 @@ export function AdminProductsPage() {
           </DialogHeader>
           <ProductForm
             product={editingProduct}
-            categories={categories}
             onSave={handleProductSaved}
             onCancel={() => setShowProductForm(false)}
           />

@@ -23,13 +23,13 @@ import {
   Check,
 } from "lucide-react";
 import { AdminProductService } from "@/services/adminProductService";
-import { Product, Category, CreateProductRequest } from "@/types/api";
+import { Product, EnumCategory, CreateProductRequest } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
 
 interface ProductFormProps {
   product?: Product | null;
-  categories: Category[];
+  categories?: EnumCategory[];
   onSave: () => void;
   onCancel: () => void;
 }
@@ -40,17 +40,18 @@ export function ProductForm({
   onSave,
   onCancel,
 }: ProductFormProps) {
-  const [formData, setFormData] = useState<CreateProductRequest>({
+  const [formData, setFormData] = useState<
+    CreateProductRequest & { inventory: { quantity: number; minStock: number } }
+  >({
     name: "",
     description: "",
     price: 0,
     category: "",
     tags: [],
-    images: [],
-    inventory: {
-      quantity: 0,
-      minStock: 5,
-    },
+    stockQuantity: 0,
+    isActive: true,
+    attributes: [],
+    inventory: { quantity: 0, minStock: 5 },
   });
 
   const [tagInput, setTagInput] = useState("");
@@ -58,22 +59,24 @@ export function ProductForm({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (product) {
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         name: product.name,
         description: product.description,
         price: product.price,
         category: product.category,
         tags: product.tags,
-        images: product.images,
+        stockQuantity: product.inventory?.quantity ?? 0,
         inventory: {
-          quantity: product.inventory.quantity,
-          minStock: product.inventory.minStock,
+          quantity: product.inventory?.quantity ?? 0,
+          minStock: product.inventory?.minStock ?? 5,
         },
-      });
-      setPreviewImages(product.images);
+      }));
+      setPreviewImages(product.images ?? []);
     }
   }, [product]);
 
@@ -120,39 +123,21 @@ export function ProductForm({
     }));
   };
 
-  const handleImageUpload = async (files: FileList) => {
+  const handleImageUpload = (files: FileList) => {
     if (files.length === 0) return;
-
-    setUploading(true);
-    try {
-      const uploadedUrls = await AdminProductService.uploadImages(files);
-
-      setFormData((prev) => ({
-        ...prev,
-        images: [...prev.images, ...uploadedUrls],
-      }));
-
-      // Update preview images
-      setPreviewImages((prev) => [...prev, ...uploadedUrls]);
-
-      toast.success(
-        `${uploadedUrls.length} imagem(ns) carregada(s) com sucesso`
-      );
-    } catch (error: any) {
-      console.error("Failed to upload images:", error);
-      const errorMessage = parseApiError(error).message;
-      toast.error(`Erro ao fazer upload: ${errorMessage}`);
-    } finally {
-      setUploading(false);
-    }
+    const file = files[0];
+    setImageFile(file);
+    // Preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImages([reader.result as string]);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleRemoveImage = (imageUrl: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      images: prev.images.filter((url) => url !== imageUrl),
-    }));
-    setPreviewImages((prev) => prev.filter((url) => url !== imageUrl));
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setPreviewImages([]);
   };
 
   const validateForm = (): boolean => {
@@ -174,15 +159,11 @@ export function ProductForm({
       newErrors.category = "Categoria é obrigatória";
     }
 
-    if (formData.inventory.quantity < 0) {
+    if (formData.stockQuantity < 0) {
       newErrors.quantity = "Quantidade não pode ser negativa";
     }
 
-    if (formData.inventory.minStock < 0) {
-      newErrors.minStock = "Estoque mínimo não pode ser negativo";
-    }
-
-    if (formData.images.length === 0) {
+    if (!imageFile) {
       newErrors.images = "Pelo menos uma imagem é obrigatória";
     }
 
@@ -200,11 +181,34 @@ export function ProductForm({
 
     setSaving(true);
     try {
+      const data = new FormData();
+      data.append("Name", formData.name);
+      data.append("Description", formData.description);
+      data.append("Price", String(formData.price));
+      data.append("StockQuantity", String(formData.stockQuantity));
+      data.append("IsActive", "true");
+
+      if (imageFile) {
+        data.append("ImageUrl", imageFile);
+      }
+
+      // ✅ CORREÇÃO: Envia Attributes usando a convenção de índices do ASP.NET Core
+      if (formData.category) {
+        // Converte o nome do enum (string) para seu valor numérico
+        const categoryValue =
+          typeof formData.category === "string"
+            ? EnumCategory[formData.category as keyof typeof EnumCategory]
+            : formData.category;
+
+        // Envia usando a nomenclatura correta para model binding
+        data.append("Attributes[0].Category", String(categoryValue));
+      }
+
       if (product) {
-        await AdminProductService.updateProduct(product.id, formData);
+        await AdminProductService.updateProduct(product.id, data, true);
         toast.success("Produto atualizado com sucesso");
       } else {
-        await AdminProductService.createProduct(formData);
+        await AdminProductService.createProduct(data, true);
         toast.success("Produto criado com sucesso");
       }
       onSave();
@@ -293,11 +297,13 @@ export function ProductForm({
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.name}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {Object.entries(EnumCategory)
+                      .filter(([k, v]) => isNaN(Number(k)))
+                      .map(([key, _]) => (
+                        <SelectItem key={key} value={key}>
+                          {key}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 {errors.category && (
@@ -324,7 +330,7 @@ export function ProductForm({
                 onChange={(e) =>
                   handleInventoryChange(
                     "quantity",
-                    parseInt(e.target.value) || 0
+                    parseInt(e.target.value) || 0,
                   )
                 }
                 placeholder="0"
@@ -345,7 +351,7 @@ export function ProductForm({
                 onChange={(e) =>
                   handleInventoryChange(
                     "minStock",
-                    parseInt(e.target.value) || 0
+                    parseInt(e.target.value) || 0,
                   )
                 }
                 placeholder="0"
@@ -366,8 +372,8 @@ export function ProductForm({
                 {formData.inventory.quantity === 0
                   ? "Sem estoque"
                   : formData.inventory.quantity <= formData.inventory.minStock
-                  ? "Estoque baixo"
-                  : "Em estoque"}
+                    ? "Estoque baixo"
+                    : "Em estoque"}
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -432,7 +438,6 @@ export function ProductForm({
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
               <input
                 type="file"
-                multiple
                 accept="image/*"
                 onChange={(e) =>
                   e.target.files && handleImageUpload(e.target.files)
@@ -467,31 +472,25 @@ export function ProductForm({
             {/* Image Preview */}
             {previewImages.length > 0 && (
               <div>
-                <h4 className="text-sm font-medium mb-3">
-                  Imagens ({previewImages.length})
-                </h4>
+                <h4 className="text-sm font-medium mb-3">Imagem selecionada</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {previewImages.map((imageUrl, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={imageUrl}
-                        alt={`Produto ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg bg-gray-100"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(imageUrl)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                      {index === 0 && (
-                        <Badge className="absolute bottom-1 left-1 bg-green-600">
-                          Principal
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
+                  <div className="relative group">
+                    <img
+                      src={previewImages[0]}
+                      alt="Produto"
+                      className="w-full h-32 object-cover rounded-lg bg-gray-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <Badge className="absolute bottom-1 left-1 bg-green-600">
+                      Principal
+                    </Badge>
+                  </div>
                 </div>
               </div>
             )}

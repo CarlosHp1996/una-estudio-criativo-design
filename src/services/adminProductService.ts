@@ -21,39 +21,40 @@ export class AdminProductService {
       minPrice?: number;
       maxPrice?: number;
       inStock?: boolean;
-    }
+    },
   ): Promise<ProductsResponse> {
     const queryParams = new URLSearchParams();
-
-    queryParams.append("page", page.toString());
-    queryParams.append("pageSize", pageSize.toString());
-
-    if (filters?.search) queryParams.append("search", filters.search);
-    if (filters?.category) queryParams.append("category", filters.category);
-    if (filters?.minPrice !== undefined)
-      queryParams.append("minPrice", filters.minPrice.toString());
-    if (filters?.maxPrice !== undefined)
-      queryParams.append("maxPrice", filters.maxPrice.toString());
-    if (filters?.inStock !== undefined)
-      queryParams.append("inStock", filters.inStock.toString());
-
-    const response = await httpClient.get<ApiResponse<ProductsResponse>>(
-      `/products?${queryParams.toString()}`
+    queryParams.append("Page", page.toString());
+    queryParams.append("PageSize", pageSize.toString());
+    // Adicione outros filtros se necessário, conforme backend
+    // ✅ CORRETO
+    const response = await httpClient.get<ProductsResponse>(
+      `/Product/get?${queryParams.toString()}`,
     );
-    return response.data.data;
+    return response.data; // Retorna response.data direto (que já é a estrutura completa)
   }
 
   /**
    * Create a new product (admin only)
    */
   static async createProduct(
-    productData: CreateProductRequest
-  ): Promise<Product> {
-    const response = await httpClient.post<ApiResponse<Product>>(
-      "/products",
-      productData
-    );
-    return response.data.data;
+    formData: FormData,
+    isFormData: boolean = false,
+  ): Promise<any> {
+    // Buscar token do localStorage (ajuste conforme seu fluxo de auth)
+    const token = localStorage.getItem("una_token");
+    const response = await fetch("https://localhost:4242/api/Product/create", {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.message || "Erro ao criar produto");
+    }
+    return response.json();
   }
 
   /**
@@ -61,11 +62,11 @@ export class AdminProductService {
    */
   static async updateProduct(
     id: string,
-    productData: Partial<CreateProductRequest>
+    productData: Partial<CreateProductRequest>,
   ): Promise<Product> {
     const response = await httpClient.put<ApiResponse<Product>>(
       `/products/${id}`,
-      productData
+      productData,
     );
     return response.data.data;
   }
@@ -82,7 +83,7 @@ export class AdminProductService {
    */
   static async getProductById(id: string): Promise<Product> {
     const response = await httpClient.get<ApiResponse<Product>>(
-      `/products/${id}`
+      `/products/${id}`,
     );
     return response.data.data;
   }
@@ -90,22 +91,16 @@ export class AdminProductService {
   /**
    * Get available categories
    */
-  static async getCategories(): Promise<Category[]> {
-    const response = await httpClient.get<ApiResponse<Category[]>>(
-      "/products/categories"
-    );
-    return response.data.data;
-  }
 
   /**
    * Bulk update products (admin only)
    */
   static async bulkUpdateProducts(
-    updates: { id: string; data: Partial<CreateProductRequest> }[]
+    updates: { id: string; data: Partial<CreateProductRequest> }[],
   ): Promise<Product[]> {
     const response = await httpClient.put<ApiResponse<Product[]>>(
       "/products/bulk",
-      { updates }
+      { updates },
     );
     return response.data.data;
   }
@@ -134,27 +129,10 @@ export class AdminProductService {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
 
     return response.data.data.urls;
-  }
-
-  /**
-   * Get product statistics
-   */
-  static async getProductStatistics(): Promise<{
-    totalProducts: number;
-    totalCategories: number;
-    lowStockProducts: number;
-    outOfStockProducts: number;
-    averagePrice: number;
-    mostPopularCategory: string;
-  }> {
-    const response = await httpClient.get<ApiResponse<any>>(
-      "/products/statistics"
-    );
-    return response.data.data;
   }
 
   /**
@@ -167,14 +145,14 @@ export class AdminProductService {
       priceRange?: [number, number];
       stockStatus?: "in_stock" | "low_stock" | "out_of_stock";
       dateRange?: [string, string];
-    }
+    },
   ): Promise<Product[]> {
     const queryParams = new URLSearchParams();
     queryParams.append("q", query);
 
     if (filters?.categories?.length) {
       filters.categories.forEach((cat) =>
-        queryParams.append("categories", cat)
+        queryParams.append("categories", cat),
       );
     }
 
@@ -193,7 +171,7 @@ export class AdminProductService {
     }
 
     const response = await httpClient.get<ApiResponse<Product[]>>(
-      `/products/search?${queryParams.toString()}`
+      `/products/search?${queryParams.toString()}`,
     );
     return response.data.data;
   }

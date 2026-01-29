@@ -20,7 +20,7 @@ export class ProductService {
     page: number = 1,
     pageSize: number = 12,
     filters?: ProductFilters,
-    useCache: boolean = true
+    useCache: boolean = true,
   ): Promise<ProductsResponse> {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -68,14 +68,14 @@ export class ProductService {
     return await cachedRequest(
       cacheKey,
       () => apiUtils.get<ProductsResponse>(url),
-      CacheConfig.DYNAMIC
+      CacheConfig.DYNAMIC,
     );
   }
 
   // Get product by ID with caching
   static async getProductById(
     productId: string,
-    useCache: boolean = true
+    useCache: boolean = true,
   ): Promise<Product> {
     if (!useCache) {
       return await apiUtils.get<Product>(`/products/${productId}`);
@@ -86,7 +86,7 @@ export class ProductService {
     return await cachedRequest(
       cacheKey,
       () => apiUtils.get<Product>(`/products/${productId}`),
-      CacheConfig.STATIC
+      CacheConfig.STATIC,
     );
   }
 
@@ -94,7 +94,7 @@ export class ProductService {
   static async searchProducts(
     query: string,
     page: number = 1,
-    pageSize: number = 12
+    pageSize: number = 12,
   ): Promise<ProductsResponse> {
     const params = new URLSearchParams({
       search: query,
@@ -103,7 +103,7 @@ export class ProductService {
     });
 
     return await apiUtils.get<ProductsResponse>(
-      `/products/search?${params.toString()}`
+      `/products/search?${params.toString()}`,
     );
   }
 
@@ -111,7 +111,7 @@ export class ProductService {
   static async getProductsByCategory(
     category: string,
     page: number = 1,
-    pageSize: number = 12
+    pageSize: number = 12,
   ): Promise<ProductsResponse> {
     const params = new URLSearchParams({
       category,
@@ -120,7 +120,7 @@ export class ProductService {
     });
 
     return await apiUtils.get<ProductsResponse>(
-      `/products?${params.toString()}`
+      `/products?${params.toString()}`,
     );
   }
 
@@ -132,15 +132,10 @@ export class ProductService {
     });
 
     const response = await apiUtils.get<ProductsResponse>(
-      `/products?${params.toString()}`
+      `/products?${params.toString()}`,
     );
 
     return response.items;
-  }
-
-  // Get available categories
-  static async getCategories(): Promise<Category[]> {
-    return await apiUtils.get<Category[]>("/products/categories");
   }
 
   // Get popular tags
@@ -151,7 +146,7 @@ export class ProductService {
   // Get product recommendations (based on user history or similar products)
   static async getRecommendations(
     productId?: string,
-    limit: number = 4
+    limit: number = 4,
   ): Promise<Product[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
@@ -162,7 +157,7 @@ export class ProductService {
     }
 
     return await apiUtils.get<Product[]>(
-      `/products/recommendations?${params.toString()}`
+      `/products/recommendations?${params.toString()}`,
     );
   }
 
@@ -173,7 +168,7 @@ export class ProductService {
 
   static async updateProduct(
     productId: string,
-    data: UpdateProductRequest
+    data: UpdateProductRequest,
   ): Promise<Product> {
     return await apiUtils.put<Product>(`/admin/products/${productId}`, data);
   }
@@ -186,7 +181,7 @@ export class ProductService {
   static async getProductReviews(
     productId: string,
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<any> {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -194,7 +189,7 @@ export class ProductService {
     });
 
     return await apiUtils.get<any>(
-      `/products/${productId}/reviews?${params.toString()}`
+      `/products/${productId}/reviews?${params.toString()}`,
     );
   }
 

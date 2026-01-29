@@ -31,7 +31,7 @@ export interface AuthResponse {
 
 export interface SocialUser {
   providerId: string;
-  provider: string; // "google" or "facebook"  
+  provider: string; // "google" or "facebook"
   email: string;
   name: string;
   picture?: string;
@@ -47,39 +47,75 @@ export interface SocialAuthResponse {
   user: User;
   success: boolean;
 }
-}
 
 // Simplified Google login request (just access token)
 export interface GoogleLoginRequest {
   accessToken: string;
 }
 
-// Product types
+// ✅ CORREÇÃO: Tipo Product atualizado para corresponder ao backend real
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
-  category: string;
-  tags: string[];
-  images: string[];
-  averageRating: number;
-  totalReviews: number;
-  inventory: {
-    quantity: number;
+  stockQuantity: number; // ✅ Backend retorna stockQuantity, não inventory.quantity
+  imageUrl: string; // ✅ Backend retorna imageUrl (string), não images (array)
+  isActive: boolean;
+  attributes: ProductAttributeDto[]; // ✅ Backend retorna attributes com category
+  createdAt?: string;
+  updatedAt?: string;
+  // ⚠️ Campos adicionais para compatibilidade com o frontend (calculados)
+  category?: EnumCategory | string; // Extraído de attributes[0].category
+  tags?: string[];
+  averageRating?: number;
+  totalReviews?: number;
+  inventory?: {
+    // Para compatibilidade com código existente
+    quantity: number; // Mapeado de stockQuantity
     minStock: number;
-    isInStock: boolean;
+    isInStock: boolean; // Calculado de stockQuantity > 0
   };
-  createdAt: string;
-  updatedAt: string;
+  images?: string[]; // Para compatibilidade (array com imageUrl)
+}
+
+// EnumCategory igual backend
+export enum EnumCategory {
+  Teste1 = 0,
+  Teste2 = 1,
+  Teste3 = 2,
+}
+
+// ✅ CORREÇÃO: Estrutura correta da resposta do backend
+export interface ProductsValue {
+  products: Product[];
+  pagination: {
+    currentPage: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+  filters: {
+    quantityRanges: {
+      minQuantity: number;
+      maxQuantity: number;
+      productCount: number;
+    }[];
+    minPrice: number;
+    maxPrice: number;
+  };
 }
 
 export interface ProductsResponse {
-  items: Product[];
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  pageSize: number;
+  value: ProductsValue;
+  count: number;
+  hasSuccess: boolean;
+  hasError: boolean;
+  message: string | null;
+  errors: any[];
+  httpStatusCode: string;
+  dataRequisicao: string;
+  errorMessage: string | null;
 }
 
 export interface ProductFilters {
@@ -99,21 +135,47 @@ export interface Category {
   productCount: number;
 }
 
+// Para request de criação, refletindo backend
+export interface ProductAttributeRequest {
+  category?: EnumCategory | string | number;
+}
+
 export interface CreateProductRequest {
   name: string;
   description: string;
   price: number;
-  category: string;
-  tags: string[];
-  images: string[];
-  inventory: {
-    quantity: number;
-    minStock: number;
-  };
+  stockQuantity: number;
+  imageUrl?: File | null;
+  isActive: boolean;
+  attributes?: ProductAttributeRequest[];
+  // Campos extras para o formulário
+  category?: string;
+  tags?: string[];
+  inventory?: { quantity: number; minStock: number };
+}
+
+// Para response
+export interface ProductAttributeDto {
+  id?: string | null;
+  category: string; // Backend retorna como string (ex: "Teste1")
+}
+
+export interface ProductResponse {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  stockQuantity: number;
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  attributes: ProductAttributeDto[];
+  message?: string;
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> {
-  id: string;
+  id?: string;
 }
 
 // Cart types
