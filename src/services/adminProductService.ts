@@ -21,17 +21,28 @@ export class AdminProductService {
       minPrice?: number;
       maxPrice?: number;
       inStock?: boolean;
+      stockQuantity?: number;
     },
   ): Promise<ProductsResponse> {
     const queryParams = new URLSearchParams();
     queryParams.append("Page", page.toString());
     queryParams.append("PageSize", pageSize.toString());
-    // Adicione outros filtros se necessário, conforme backend
-    // ✅ CORRETO
+
+    // Adicionar filtros conforme backend
+    if (filters?.stockQuantity !== undefined) {
+      queryParams.append("StockQuantity", filters.stockQuantity.toString());
+    }
+    if (filters?.search) {
+      queryParams.append("Search", filters.search);
+    }
+    if (filters?.category) {
+      queryParams.append("Category", filters.category);
+    }
+
     const response = await httpClient.get<ProductsResponse>(
       `/Product/get?${queryParams.toString()}`,
     );
-    return response.data; // Retorna response.data direto (que já é a estrutura completa)
+    return response.data;
   }
 
   /**

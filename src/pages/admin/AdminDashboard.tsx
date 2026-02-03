@@ -14,11 +14,22 @@ import {
   FileText,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { AxiosError } from "axios";
 import { AdminProductService } from "@/services/adminProductService";
 import { OrderService } from "@/services/orderService";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { parseApiError } from "@/lib/errorHandling";
+import { Product } from "@/types/api";
+
+interface OrderDto {
+  id: string;
+  orderNumber: string;
+  userId: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+}
 
 export function AdminDashboard() {
   const { user } = useAuth();
@@ -50,19 +61,74 @@ export function AdminDashboard() {
     try {
       setLoading(true);
 
-      // Load product statistics
-      const productStats = await AdminProductService.getProductStatistics();
+      // Load products from /Product/get
+      const productsResponse = await AdminProductService.getAllProducts(1, 100);
+      const products = productsResponse.value?.products || [];
 
-      // Load order statistics
-      const orderStats = await OrderService.getOrderStatistics();
+      // Calculate product statistics
+      const outOfStock = products.filter(
+        (p: Product) => p.stockQuantity === 0,
+      ).length;
+      const totalPrice = products.reduce(
+        (sum: number, p: Product) => sum + p.price,
+        0,
+      );
+      const averagePrice =
+        products.length > 0 ? totalPrice / products.length : 0;
+
+      // Load orders from /Order/get with Bearer token
+      const token = localStorage.getItem("una_token");
+      const ordersResponse = await fetch(
+        "https://localhost:4242/api/Order/get?Page=1&PageSize=100",
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+
+      let totalOrders = 0;
+      let pendingOrders = 0;
+      let completedOrders = 0;
+      let cancelledOrders = 0;
+
+      if (ordersResponse.ok) {
+        const ordersData = await ordersResponse.json();
+        const orders: OrderDto[] = ordersData.value?.orders || [];
+        totalOrders = orders.length;
+
+        // Count by status
+        orders.forEach((order: OrderDto) => {
+          const status = order.status.toLowerCase();
+          if (status === "pending" || status === "pendente") pendingOrders++;
+          else if (status === "completed" || status === "entregue")
+            completedOrders++;
+          else if (status === "cancelled" || status === "cancelado")
+            cancelledOrders++;
+        });
+      }
 
       setStats({
-        products: productStats,
-        orders: orderStats,
+        products: {
+          total: products.length,
+          categories: 0, // Não implementado ainda
+          lowStock: 0, // Não implementado ainda
+          outOfStock: outOfStock,
+          averagePrice: averagePrice,
+          mostPopularCategory: "",
+        },
+        orders: {
+          total: totalOrders,
+          pending: pendingOrders,
+          completed: completedOrders,
+          cancelled: cancelledOrders,
+          totalRevenue: 0, // Deixar vazio conforme solicitado
+          averageOrderValue: 0,
+        },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load dashboard data:", error);
-      const errorMessage = parseApiError(error).message;
+      const errorMessage = parseApiError(error as AxiosError).message;
       toast.error(`Erro ao carregar dados: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -171,12 +237,8 @@ export function AdminDashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats.orders.totalRevenue)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Média: {formatCurrency(stats.orders.averageOrderValue)}
-            </p>
+            <div className="text-2xl font-bold">-</div>
+            <p className="text-xs text-muted-foreground">Em desenvolvimento</p>
           </CardContent>
         </Card>
 
@@ -190,7 +252,7 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {stats.products.lowStock + stats.products.outOfStock}
+              {stats.products.outOfStock}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats.products.outOfStock} sem estoque
@@ -248,18 +310,6 @@ export function AdminDashboard() {
               </Badge>
             </div>
 
-            {stats.products.lowStock > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Estoque baixo</span>
-                <Badge
-                  variant="secondary"
-                  className="bg-orange-100 text-orange-800"
-                >
-                  {stats.products.lowStock}
-                </Badge>
-              </div>
-            )}
-
             {stats.products.outOfStock > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Sem estoque</span>
@@ -268,12 +318,6 @@ export function AdminDashboard() {
             )}
 
             <div className="pt-4 border-t">
-              <p className="text-sm text-gray-600 mb-2">
-                Categoria mais popular:{" "}
-                <span className="font-medium">
-                  {stats.products.mostPopularCategory || "N/A"}
-                </span>
-              </p>
               <p className="text-sm text-gray-600">
                 Preço médio:{" "}
                 <span className="font-medium">
@@ -339,12 +383,6 @@ export function AdminDashboard() {
                       : "0%"}
                   </p>
                 </div>
-                <div>
-                  <p className="text-gray-600">Ticket médio</p>
-                  <p className="font-medium">
-                    {formatCurrency(stats.orders.averageOrderValue)}
-                  </p>
-                </div>
               </div>
             </div>
 
@@ -359,7 +397,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Alerts */}
-      {(stats.products.lowStock > 0 || stats.products.outOfStock > 0) && (
+      {stats.products.outOfStock > 0 && (
         <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-orange-800">
@@ -375,14 +413,8 @@ export function AdminDashboard() {
                   estoque
                 </p>
               )}
-              {stats.products.lowStock > 0 && (
-                <p className="text-sm text-orange-700">
-                  • <strong>{stats.products.lowStock}</strong> produto(s) com
-                  estoque baixo
-                </p>
-              )}
               <Button asChild variant="outline" size="sm" className="mt-3">
-                <Link to="/admin/products?filter=low_stock">
+                <Link to="/admin/products?stock=0">
                   Ver Produtos com Problema
                 </Link>
               </Button>

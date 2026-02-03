@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,6 +54,7 @@ import {
   Trash2,
   Filter,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import { AdminProductService } from "@/services/adminProductService";
 import { Product, EnumCategory } from "@/types/api";
@@ -60,6 +63,8 @@ import { toast } from "sonner";
 import { ProductForm } from "@/components/admin/ProductForm";
 
 export function AdminProductsPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,18 +79,29 @@ export function AdminProductsPage() {
   const pageSize = 10;
 
   useEffect(() => {
-    loadProducts();
-  }, [currentPage, categoryFilter, stockFilter]);
+    // Verifica se há filtro de stock na URL
+    const stockParam = searchParams.get("stock");
+    if (stockParam === "0") {
+      setStockFilter("out_of_stock");
+    }
+  }, [searchParams]);
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
 
-      const filters: any = {};
+      const filters: {
+        search?: string;
+        category?: string;
+        minPrice?: number;
+        maxPrice?: number;
+        inStock?: boolean;
+        stockQuantity?: number;
+      } = {};
       if (searchTerm) filters.search = searchTerm;
       if (categoryFilter !== "all") filters.category = categoryFilter;
       if (stockFilter === "in_stock") filters.inStock = true;
-      if (stockFilter === "out_of_stock") filters.inStock = false;
+      if (stockFilter === "out_of_stock") filters.stockQuantity = 0;
 
       const response = await AdminProductService.getAllProducts(
         currentPage,
@@ -114,19 +130,28 @@ export function AdminProductsPage() {
       setProducts(normalizedProducts);
       setTotalPages(response.value.pagination.totalPages);
       setTotalItems(response.value.pagination.totalItems);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load products:", error);
-      const errorMessage = parseApiError(error).message;
+      const errorMessage = parseApiError(error as AxiosError).message;
       toast.error(`Erro ao carregar produtos: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, searchTerm, categoryFilter, stockFilter]);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1);
     loadProducts();
+  };
+
+  const clearStockFilter = () => {
+    setStockFilter("all");
+    navigate("/admin/products", { replace: true });
   };
 
   const handleDeleteProduct = async (productId: string) => {
@@ -135,9 +160,9 @@ export function AdminProductsPage() {
       toast.success("Produto deletado com sucesso");
       loadProducts();
       setSelectedProducts((prev) => prev.filter((id) => id !== productId));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to delete product:", error);
-      const errorMessage = parseApiError(error).message;
+      const errorMessage = parseApiError(error as AxiosError).message;
       toast.error(`Erro ao deletar produto: ${errorMessage}`);
     }
   };
@@ -152,9 +177,9 @@ export function AdminProductsPage() {
       );
       setSelectedProducts([]);
       loadProducts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to bulk delete products:", error);
-      const errorMessage = parseApiError(error).message;
+      const errorMessage = parseApiError(error as AxiosError).message;
       toast.error(`Erro ao deletar produtos: ${errorMessage}`);
     }
   };
@@ -274,6 +299,22 @@ export function AdminProductsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Active Filters */}
+      {stockFilter === "out_of_stock" && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Filtros ativos:</span>
+          <Badge
+            variant="secondary"
+            className="flex items-center gap-2 pl-3 pr-2 py-1.5 bg-orange-100 text-orange-800 hover:bg-orange-200 cursor-pointer"
+            onClick={clearStockFilter}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            <span>Estoque = 0</span>
+            <X className="h-3 w-3 ml-1" />
+          </Badge>
+        </div>
+      )}
 
       {/* Bulk Actions */}
       {selectedProducts.length > 0 && (
