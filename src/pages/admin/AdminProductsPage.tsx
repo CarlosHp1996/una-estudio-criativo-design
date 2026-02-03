@@ -165,11 +165,16 @@ export function AdminProductsPage() {
     loadProducts();
   };
 
+  const getProductCategory = (product: Product) => {
+    if (product.attributes && product.attributes.length > 0) {
+      return product.attributes[0].category || "Sem categoria";
+    }
+    return product.category || "Sem categoria";
+  };
+
   const getStockStatus = (product: Product) => {
-    if (!product.inventory?.isInStock || product.stockQuantity === 0)
+    if (!product.stockQuantity || product.stockQuantity === 0)
       return "out_of_stock";
-    if (product.stockQuantity <= (product.inventory?.minStock || 10))
-      return "low_stock";
     return "in_stock";
   };
 
@@ -178,12 +183,6 @@ export function AdminProductsPage() {
     switch (status) {
       case "out_of_stock":
         return <Badge variant="destructive">Sem Estoque</Badge>;
-      case "low_stock":
-        return (
-          <Badge variant="secondary" className="text-orange-600 bg-orange-100">
-            Estoque Baixo
-          </Badge>
-        );
       default:
         return (
           <Badge variant="secondary" className="text-green-600 bg-green-100">
@@ -207,22 +206,6 @@ export function AdminProductsPage() {
     } else {
       setSelectedProducts(products.map((p) => p.id));
     }
-  };
-
-  const getProductCategory = (product: Product): string => {
-    if (product.category) {
-      return typeof product.category === "string"
-        ? product.category
-        : EnumCategory[product.category];
-    }
-    if (
-      product.attributes &&
-      product.attributes.length > 0 &&
-      product.attributes[0].category
-    ) {
-      return product.attributes[0].category;
-    }
-    return "Sem categoria";
   };
 
   return (
@@ -410,9 +393,7 @@ export function AdminProductsPage() {
                           <div className="flex items-center gap-3">
                             <img
                               src={
-                                product.imageUrl ||
-                                product.images?.[0] ||
-                                "/placeholder-product.png"
+                                product.imageUrl || "/placeholder-product.png"
                               }
                               alt={product.name}
                               className="w-10 h-10 rounded-md object-cover bg-gray-100"
@@ -433,12 +414,7 @@ export function AdminProductsPage() {
                         <TableCell>R$ {product.price.toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <div>{product.stockQuantity} unidades</div>
-                            {product.inventory?.minStock && (
-                              <div className="text-gray-500">
-                                Mín: {product.inventory.minStock}
-                              </div>
-                            )}
+                            {product.stockQuantity || 0} unidades
                           </div>
                         </TableCell>
                         <TableCell>{getStockBadge(product)}</TableCell>

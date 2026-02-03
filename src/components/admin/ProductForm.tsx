@@ -41,20 +41,17 @@ export function ProductForm({
   onCancel,
 }: ProductFormProps) {
   const [formData, setFormData] = useState<
-    CreateProductRequest & { inventory: { quantity: number; minStock: number } }
+    CreateProductRequest & { inventory: { quantity: number } }
   >({
     name: "",
     description: "",
     price: 0,
     category: "",
-    tags: [],
     stockQuantity: 0,
     isActive: true,
     attributes: [],
-    inventory: { quantity: 0, minStock: 5 },
+    inventory: { quantity: 0 },
   });
-
-  const [tagInput, setTagInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -69,11 +66,9 @@ export function ProductForm({
         description: product.description,
         price: product.price,
         category: product.category,
-        tags: product.tags,
         stockQuantity: product.inventory?.quantity ?? 0,
         inventory: {
           quantity: product.inventory?.quantity ?? 0,
-          minStock: product.inventory?.minStock ?? 5,
         },
       }));
       setPreviewImages(product.images ?? []);
@@ -103,23 +98,6 @@ export function ProductForm({
         ...prev.inventory,
         [field]: value,
       },
-    }));
-  };
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData((prev) => ({
-        ...prev,
-        tags: [...prev.tags, tagInput.trim()],
-      }));
-      setTagInput("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
   };
 
@@ -163,7 +141,7 @@ export function ProductForm({
       newErrors.quantity = "Quantidade não pode ser negativa";
     }
 
-    if (!imageFile) {
+    if (!imageFile && !product) {
       newErrors.images = "Pelo menos uma imagem é obrigatória";
     }
 
@@ -341,91 +319,18 @@ export function ProductForm({
               )}
             </div>
 
-            <div>
-              <Label htmlFor="minStock">Estoque Mínimo</Label>
-              <Input
-                id="minStock"
-                type="number"
-                min="0"
-                value={formData.inventory.minStock}
-                onChange={(e) =>
-                  handleInventoryChange(
-                    "minStock",
-                    parseInt(e.target.value) || 0,
-                  )
-                }
-                placeholder="0"
-                className={errors.minStock ? "border-red-500" : ""}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Alerta será exibido quando o estoque atingir este valor
-              </p>
-              {errors.minStock && (
-                <p className="text-sm text-red-600 mt-1">{errors.minStock}</p>
-              )}
-            </div>
-
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <strong>Status atual:</strong>{" "}
                 {formData.inventory.quantity === 0
                   ? "Sem estoque"
-                  : formData.inventory.quantity <= formData.inventory.minStock
-                    ? "Estoque baixo"
-                    : "Em estoque"}
+                  : "Em estoque"}
               </AlertDescription>
             </Alert>
           </CardContent>
         </Card>
       </div>
-
-      {/* Tags */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tags do Produto</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Digite uma tag e pressione Enter"
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddTag();
-                  }
-                }}
-                className="flex-1"
-              />
-              <Button type="button" onClick={handleAddTag} variant="outline">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {formData.tags.map((tag, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="flex items-center gap-1"
-                >
-                  {tag}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-600"
-                    onClick={() => handleRemoveTag(tag)}
-                  />
-                </Badge>
-              ))}
-              {formData.tags.length === 0 && (
-                <p className="text-sm text-gray-500">Nenhuma tag adicionada</p>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Images */}
       <Card>
