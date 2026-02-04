@@ -22,7 +22,7 @@ export function TrackingWidget({
   // Get orders with tracking codes that are not yet delivered
   const trackableOrders = orders.filter(
     (order) =>
-      order.trackingCode && !["delivered", "cancelled"].includes(order.status)
+      order.trackingCode && !["delivered", "cancelled"].includes(order.status),
   );
 
   const handleTrackOrder = (trackingCode: string) => {
@@ -98,8 +98,7 @@ function TrackableOrderItem({ order, onTrack }: TrackableOrderItemProps) {
     enabled: !!order.trackingCode,
     pollingInterval: 45000, // Slower polling for widget (45s)
     onStatusChange: (oldStatus, newStatus) => {
-      // Just log for now - the polling will update the display
-      console.log(`Order ${order.orderNumber}: ${oldStatus} → ${newStatus}`);
+      // Polling will update the display automatically
     },
   });
 
@@ -127,7 +126,7 @@ function TrackableOrderItem({ order, onTrack }: TrackableOrderItemProps) {
           <Badge
             variant="secondary"
             className={`${TrackingService.getStatusColor(
-              currentStatus
+              currentStatus,
             )} text-xs`}
           >
             {TrackingService.getStatusIcon(currentStatus)}{" "}

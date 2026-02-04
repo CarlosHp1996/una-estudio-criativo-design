@@ -148,15 +148,6 @@ export function UserDashboard() {
           </p>
         </div>
 
-        {apiClient.isDemoMode() && (
-          <Alert className="border-blue-200 bg-blue-50">
-            <AlertDescription className="text-blue-800">
-              <strong>🎯 Modo Demonstração:</strong> Você está usando dados
-              fictícios para testar as funcionalidades.
-            </AlertDescription>
-          </Alert>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -255,14 +246,14 @@ export function UserDashboard() {
                         <p className="font-medium">#{order.orderNumber}</p>
                         <p className="text-sm text-muted-foreground">
                           {new Date(order.createdAt).toLocaleDateString(
-                            "pt-BR"
+                            "pt-BR",
                           )}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge
                           className={`${getStatusColor(
-                            order.status
+                            order.status,
                           )} text-white`}
                         >
                           {getStatusText(order.status)}

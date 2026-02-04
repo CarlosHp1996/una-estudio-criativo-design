@@ -81,16 +81,12 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
       window.FB.login(
         (response: any) => {
           if (response.authResponse) {
-            console.log("Facebook login successful:", response);
-
             // Get user info
             window.FB.api(
               "/me",
               { fields: "id,name,email,picture" },
               async (userInfo: any) => {
                 try {
-                  console.log("Facebook user info:", userInfo);
-
                   // Create SocialUser object
                   const socialUser = {
                     providerId: userInfo.id,
@@ -115,16 +111,9 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
                     const userData = localStorage.getItem("una_user");
                     if (userData) {
                       const user = JSON.parse(userData);
-                      console.log(
-                        "FacebookLoginButton - Using context redirectAfterLogin for user:",
-                        user,
-                      );
                       redirectAfterLogin(user);
                     } else {
                       // Fallback to home if no user data
-                      console.log(
-                        "FacebookLoginButton - No user data found, redirecting to home...",
-                      );
                       window.location.href = "/";
                     }
                   }, 200);
@@ -143,7 +132,6 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
               },
             );
           } else {
-            console.log("Facebook login cancelled.");
             toast({
               title: "Login cancelado",
               description: "O login com Facebook foi cancelado.",

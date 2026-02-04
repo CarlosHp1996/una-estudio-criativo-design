@@ -85,7 +85,8 @@ export function AdminAuditPage() {
     try {
       setLoading(true);
 
-      // Mock data for demo - in real app, this would call an API
+      // TODO: Replace with real audit API when backend endpoints are available
+      // Currently using placeholder data for demonstration purposes
       const mockLogs: AuditLog[] = [
         {
           id: "audit_1",
@@ -172,19 +173,19 @@ export function AdminAuditPage() {
           (log) =>
             log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            log.entityType.toLowerCase().includes(searchTerm.toLowerCase())
+            log.entityType.toLowerCase().includes(searchTerm.toLowerCase()),
         );
       }
 
       if (actionFilter !== "all") {
         filteredLogs = filteredLogs.filter((log) =>
-          log.action.includes(actionFilter.toUpperCase())
+          log.action.includes(actionFilter.toUpperCase()),
         );
       }
 
       if (entityFilter !== "all") {
         filteredLogs = filteredLogs.filter(
-          (log) => log.entityType.toLowerCase() === entityFilter
+          (log) => log.entityType.toLowerCase() === entityFilter,
         );
       }
 
@@ -398,12 +399,12 @@ export function AdminAuditPage() {
                           <div className="text-sm">
                             <div>
                               {new Date(log.timestamp).toLocaleDateString(
-                                "pt-BR"
+                                "pt-BR",
                               )}
                             </div>
                             <div className="text-gray-500">
                               {new Date(log.timestamp).toLocaleTimeString(
-                                "pt-BR"
+                                "pt-BR",
                               )}
                             </div>
                           </div>
@@ -488,7 +489,7 @@ export function AdminAuditPage() {
                               {page}
                             </PaginationLink>
                           </PaginationItem>
-                        )
+                        ),
                       )}
 
                       {currentPage < totalPages && (

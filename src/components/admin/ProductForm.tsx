@@ -182,11 +182,6 @@ export function ProductForm({
 
     setSaving(true);
     try {
-      console.log("=== FormData antes de enviar ===");
-      console.log("formData.category:", formData.category);
-      console.log("formData.stockQuantity:", formData.stockQuantity);
-      console.log("formData.inventory.quantity:", formData.inventory.quantity);
-
       const data = new FormData();
       data.append("Name", formData.name);
       data.append("Description", formData.description);
@@ -212,15 +207,8 @@ export function ProductForm({
             ? EnumCategory[formData.category as keyof typeof EnumCategory]
             : formData.category;
 
-        console.log("categoryValue (numérico):", categoryValue);
         // Envia usando a nomenclatura correta para model binding
         data.append("Attributes[0].Category", String(categoryValue));
-      }
-
-      // Debug: mostrar todos os campos do FormData
-      console.log("=== FormData entries ===");
-      for (const pair of data.entries()) {
-        console.log(pair[0] + ": " + pair[1]);
       }
 
       if (product) {

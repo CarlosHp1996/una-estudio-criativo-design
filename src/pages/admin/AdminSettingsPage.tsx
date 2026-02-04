@@ -171,8 +171,8 @@ export function AdminSettingsPage() {
   const handleSaveSettings = async () => {
     try {
       setSaving(true);
-      // In a real app, this would save to API
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // Mock delay
+      // TODO: Implement API endpoint for saving settings
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       toast.success("Configurações salvas com sucesso!");
     } catch (error: any) {
       console.error("Failed to save settings:", error);
@@ -190,7 +190,7 @@ export function AdminSettingsPage() {
   const updateSetting = (
     section: keyof SystemSettings,
     field: string,
-    value: any
+    value: any,
   ) => {
     setSettings((prev) => ({
       ...prev,
@@ -345,7 +345,7 @@ export function AdminSettingsPage() {
                       updateSetting(
                         "general",
                         "storeDescription",
-                        e.target.value
+                        e.target.value,
                       )
                     }
                     rows={3}
@@ -406,7 +406,7 @@ export function AdminSettingsPage() {
                             updateSetting(
                               "email",
                               "smtpPort",
-                              parseInt(e.target.value)
+                              parseInt(e.target.value),
                             )
                           }
                         />
@@ -431,7 +431,7 @@ export function AdminSettingsPage() {
                             updateSetting(
                               "email",
                               "smtpPassword",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                         />
@@ -503,7 +503,7 @@ export function AdminSettingsPage() {
                             updateSetting(
                               "payment",
                               "stripePublicKey",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                         />
@@ -518,7 +518,7 @@ export function AdminSettingsPage() {
                             updateSetting(
                               "payment",
                               "stripeSecretKey",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                         />
@@ -552,7 +552,7 @@ export function AdminSettingsPage() {
                             updateSetting(
                               "payment",
                               "paypalClientId",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                         />
@@ -569,7 +569,7 @@ export function AdminSettingsPage() {
                             updateSetting(
                               "payment",
                               "paypalClientSecret",
-                              e.target.value
+                              e.target.value,
                             )
                           }
                         />
@@ -626,7 +626,7 @@ export function AdminSettingsPage() {
                           updateSetting(
                             "security",
                             "requireEmailVerification",
-                            checked
+                            checked,
                           )
                         }
                       />
@@ -659,7 +659,7 @@ export function AdminSettingsPage() {
                           updateSetting(
                             "security",
                             "passwordMinLength",
-                            parseInt(e.target.value)
+                            parseInt(e.target.value),
                           )
                         }
                       />
@@ -679,7 +679,7 @@ export function AdminSettingsPage() {
                           updateSetting(
                             "security",
                             "sessionTimeout",
-                            parseInt(e.target.value)
+                            parseInt(e.target.value),
                           )
                         }
                       />
@@ -699,7 +699,7 @@ export function AdminSettingsPage() {
                           updateSetting(
                             "security",
                             "maxLoginAttempts",
-                            parseInt(e.target.value)
+                            parseInt(e.target.value),
                           )
                         }
                       />
@@ -738,7 +738,7 @@ export function AdminSettingsPage() {
                       updateSetting(
                         "maintenance",
                         "maintenanceMessage",
-                        e.target.value
+                        e.target.value,
                       )
                     }
                     rows={3}

@@ -71,9 +71,6 @@ export default function Login() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log(
-        "Login.tsx - User is already authenticated, using role-based redirection",
-      );
       redirectAfterLogin(user);
     }
   }, [isAuthenticated, user, redirectAfterLogin]);
@@ -103,11 +100,6 @@ export default function Login() {
     }
   };
 
-  const handleDemoLogin = () => {
-    setValue("email", "admin@una.com");
-    setValue("password", "Admin123!");
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
@@ -128,20 +120,6 @@ export default function Login() {
               Digite suas credenciais para acessar sua conta
             </CardDescription>
           </CardHeader>
-
-          {/* Demo Banner */}
-          <div className="mx-6 mb-4">
-            <Alert className="bg-green-50 border-green-200">
-              <AlertDescription className="text-green-800">
-                <strong>🎯 Demonstração:</strong> Use{" "}
-                <code className="bg-green-100 px-1 rounded">
-                  demo@unaestudio.com
-                </code>{" "}
-                e <code className="bg-green-100 px-1 rounded">demo123</code>{" "}
-                para testar todas as funcionalidades!
-              </AlertDescription>
-            </Alert>
-          </div>
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
@@ -199,19 +177,6 @@ export default function Login() {
                     {errors.password.message}
                   </p>
                 )}
-              </div>
-
-              {/* Demo Login Helper */}
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  onClick={handleDemoLogin}
-                  className="text-xs text-gray-500"
-                >
-                  Usar credenciais de demonstração
-                </Button>
               </div>
             </CardContent>
 

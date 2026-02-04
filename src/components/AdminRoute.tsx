@@ -39,21 +39,8 @@ export function AdminRoute({ children, fallback = null }: AdminRouteProps) {
   }
 
   // Check if user has admin role
-  console.log("AdminRoute - Full user object:", JSON.stringify(user, null, 2));
-  console.log("AdminRoute - User roles array:", user?.roles);
-  console.log("AdminRoute - Roles type:", typeof user?.roles);
-  console.log("AdminRoute - Is roles an array:", Array.isArray(user?.roles));
-
   const isAdmin =
     user?.roles?.includes("Admin") || user?.roles?.includes("admin");
-
-  console.log("AdminRoute - Is Admin check result:", isAdmin);
-  console.log("AdminRoute - Individual role checks:");
-  user?.roles?.forEach((role, index) => {
-    console.log(`  Role ${index}: "${role}" (type: ${typeof role})`);
-    console.log(`    Matches "Admin": ${role === "Admin"}`);
-    console.log(`    Matches "admin": ${role === "admin"}`);
-  });
 
   // If user is authenticated but not admin, show access denied
   if (!isAdmin) {

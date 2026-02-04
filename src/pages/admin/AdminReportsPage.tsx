@@ -116,10 +116,11 @@ export function AdminReportsPage() {
       // Get order statistics
       const orderStats = await AdminOrderService.getOrderStatistics(
         start.toISOString(),
-        now.toISOString()
+        now.toISOString(),
       );
 
-      // Mock data for demo - in real app, these would come from API
+      // TODO: Replace with real API data when backend endpoints are available
+      // Currently using placeholder data for visualization purposes
       const mockStats: ReportStats = {
         totalOrders: orderStats.totalOrders || 0,
         totalRevenue: orderStats.totalRevenue || 0,

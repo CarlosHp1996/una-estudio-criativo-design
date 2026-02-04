@@ -115,9 +115,7 @@ export default function Register() {
   }, [clearError]);
 
   const onSubmit = async (data: RegisterFormData) => {
-    console.log("Form submitted with data:", data);
     try {
-      console.log("Calling registerUser...");
       await registerUser({
         userName: data.name, // Map name to userName
         email: data.email,
@@ -126,7 +124,6 @@ export default function Register() {
         cpf: "00000000000", // CPF with 11 digits only (no formatting)
       });
 
-      console.log("Registration successful!");
       toast({
         title: "Conta criada com sucesso!",
         description: "Agora você pode fazer login com suas credenciais.",
@@ -138,13 +135,6 @@ export default function Register() {
       // Error is already handled by the AuthContext and error handling utilities
       console.error("Register error:", error);
     }
-  };
-
-  const handleDemoData = () => {
-    setValue("name", "João Silva");
-    setValue("email", "joao@exemplo.com");
-    setValue("password", "MinhaSenh@123");
-    setValue("confirmPassword", "MinhaSenh@123");
   };
 
   return (
@@ -343,19 +333,6 @@ export default function Register() {
                     {errors.acceptTerms.message}
                   </p>
                 )}
-              </div>
-
-              {/* Demo Data Helper */}
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  onClick={handleDemoData}
-                  className="text-xs text-gray-500"
-                >
-                  Preencher com dados de exemplo
-                </Button>
               </div>
             </CardContent>
 

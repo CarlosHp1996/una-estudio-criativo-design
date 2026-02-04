@@ -52,7 +52,6 @@ export const tokenManager = {
   decodeToken: (token: string) => {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
-      console.log("Decoded JWT payload:", payload);
 
       // Extract roles from claims - check common claim names
       const roles =

@@ -494,7 +494,6 @@ export class AuthService {
         updatedAt: new Date().toISOString(),
       };
 
-      console.log("getCurrentUser - decoded user from token:", user);
       return user;
     } catch (error) {
       console.error("Failed to get current user from token:", error);
@@ -517,7 +516,6 @@ export class AuthService {
   static async validateSession(): Promise<boolean> {
     try {
       if (!AuthService.isAuthenticated()) {
-        console.log("validateSession - User not authenticated");
         AuthService.clearLocalData();
         return false;
       }
@@ -525,7 +523,6 @@ export class AuthService {
       // Check if token is valid by trying to decode it
       const token = tokenManager.getToken();
       if (!token) {
-        console.log("validateSession - No token found");
         AuthService.clearLocalData();
         return false;
       }
@@ -533,19 +530,16 @@ export class AuthService {
       // Try to decode token to validate it's still valid
       const claims = tokenManager.decodeToken(token);
       if (!claims) {
-        console.log("validateSession - Token decode failed");
         AuthService.clearLocalData();
         return false;
       }
 
       // Check if token is expired (if exp claim is present)
       if (claims.exp && claims.exp * 1000 < Date.now()) {
-        console.log("validateSession - Token expired");
         AuthService.clearLocalData();
         return false;
       }
 
-      console.log("validateSession - Session is valid");
       return true;
     } catch (error) {
       console.error("Session validation failed:", error);

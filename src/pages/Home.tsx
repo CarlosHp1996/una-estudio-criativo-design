@@ -1,14 +1,36 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import ProductCard from "@/components/ProductCard";
-import { products } from "@/data/products";
 import { Star } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
 import aboutStudio from "@/assets/about-studio.jpg";
+import ProductService from "@/services/productService";
+import type { Product } from "@/types/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Home = () => {
-  const featuredProducts = products.slice(0, 3);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadFeaturedProducts = async () => {
+      try {
+        const response = await ProductService.getProducts({
+          pageNumber: 1,
+          pageSize: 3,
+        });
+        setFeaturedProducts(response.products);
+      } catch (error) {
+        console.error("Failed to load featured products:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadFeaturedProducts();
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -51,11 +73,25 @@ const Home = () => {
             dedicação e carinho
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} {...product} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <Skeleton className="h-64 w-full" />
+                <CardContent className="p-4">
+                  <Skeleton className="h-4 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {featuredProducts.map((product) => (
+              <ProductCard key={product.id} {...product} />
+            ))}
+          </div>
+        )}
         <div className="text-center">
           <Button
             asChild
@@ -96,7 +132,7 @@ const Home = () => {
                     </CardContent>
                   </Card>
                 </Link>
-              )
+              ),
             )}
           </div>
         </div>

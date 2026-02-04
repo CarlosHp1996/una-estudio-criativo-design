@@ -39,7 +39,6 @@ export default function TrackingPage() {
     pollingInterval: 30000, // Check every 30 seconds
     onStatusChange: (oldStatus, newStatus, updatedTracking) => {
       setTracking(updatedTracking);
-      console.log(`Status changed from ${oldStatus} to ${newStatus}`);
     },
   });
 
@@ -76,11 +75,11 @@ export default function TrackingPage() {
 
       if (error.response?.status === 404) {
         setError(
-          "Código de rastreamento não encontrado. Verifique o código e tente novamente."
+          "Código de rastreamento não encontrado. Verifique o código e tente novamente.",
         );
       } else {
         setError(
-          "Erro ao buscar rastreamento. Tente novamente em alguns minutos."
+          "Erro ao buscar rastreamento. Tente novamente em alguns minutos.",
         );
       }
 
@@ -195,7 +194,7 @@ export default function TrackingPage() {
                   <Badge
                     variant="secondary"
                     className={`${TrackingService.getStatusColor(
-                      tracking.status
+                      tracking.status,
                     )} font-semibold`}
                   >
                     {TrackingService.getStatusIcon(tracking.status)}{" "}
@@ -250,7 +249,7 @@ export default function TrackingPage() {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
-                      }
+                      },
                     )}
                   </p>
                 </div>
