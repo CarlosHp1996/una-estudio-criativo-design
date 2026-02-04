@@ -90,8 +90,23 @@ export class AdminProductService {
   /**
    * Delete a product (admin only)
    */
-  static async deleteProduct(id: string): Promise<void> {
-    await httpClient.delete(`/products/${id}`);
+  static async deleteProduct(id: string): Promise<any> {
+    const token = localStorage.getItem("una_token");
+    const response = await fetch(
+      `https://localhost:4242/api/Product/delete/${id}`,
+      {
+        method: "DELETE",
+        headers: {
+          accept: "text/plain",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.message || "Erro ao deletar produto");
+    }
+    return response.json();
   }
 
   /**
