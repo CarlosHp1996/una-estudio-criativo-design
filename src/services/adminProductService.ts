@@ -48,10 +48,7 @@ export class AdminProductService {
   /**
    * Create a new product (admin only)
    */
-  static async createProduct(
-    formData: FormData,
-    isFormData: boolean = false,
-  ): Promise<any> {
+  static async createProduct(formData: FormData): Promise<any> {
     // Buscar token do localStorage (ajuste conforme seu fluxo de auth)
     const token = localStorage.getItem("una_token");
     const response = await fetch("https://localhost:4242/api/Product/create", {
@@ -71,15 +68,23 @@ export class AdminProductService {
   /**
    * Update an existing product (admin only)
    */
-  static async updateProduct(
-    id: string,
-    productData: Partial<CreateProductRequest>,
-  ): Promise<Product> {
-    const response = await httpClient.put<ApiResponse<Product>>(
-      `/products/${id}`,
-      productData,
+  static async updateProduct(id: string, formData: FormData): Promise<any> {
+    const token = localStorage.getItem("una_token");
+    const response = await fetch(
+      `https://localhost:4242/api/Product/update/${id}`,
+      {
+        method: "PUT",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      },
     );
-    return response.data.data;
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.message || "Erro ao atualizar produto");
+    }
+    return response.json();
   }
 
   /**

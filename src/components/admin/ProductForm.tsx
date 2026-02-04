@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,7 @@ export function ProductForm({
   onCancel,
 }: ProductFormProps) {
   const [formData, setFormData] = useState<
-    CreateProductRequest & { inventory: { quantity: number } }
+    CreateProductRequest & { inventory: { quantity: number; minStock: number } }
   >({
     name: "",
     description: "",
@@ -50,7 +51,7 @@ export function ProductForm({
     stockQuantity: 0,
     isActive: true,
     attributes: [],
-    inventory: { quantity: 0 },
+    inventory: { quantity: 0, minStock: 0 },
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,22 +61,42 @@ export function ProductForm({
 
   useEffect(() => {
     if (product) {
+      // Extrair categoria dos attributes se disponível
+      let categoryValue = "";
+      if (product.attributes?.[0]?.category !== undefined) {
+        // A categoria do backend é um número (enum)
+        const categoryNum = product.attributes[0].category;
+        // Encontrar o nome do enum correspondente ao número
+        // EnumCategory.Teste1 = 0, Teste2 = 1, Teste3 = 2
+        if (categoryNum === EnumCategory.Teste1) categoryValue = "Teste1";
+        else if (categoryNum === EnumCategory.Teste2) categoryValue = "Teste2";
+        else if (categoryNum === EnumCategory.Teste3) categoryValue = "Teste3";
+      }
+
       setFormData((prev) => ({
         ...prev,
         name: product.name,
         description: product.description,
         price: product.price,
-        category: product.category,
-        stockQuantity: product.inventory?.quantity ?? 0,
+        category: categoryValue,
+        stockQuantity: product.stockQuantity,
         inventory: {
-          quantity: product.inventory?.quantity ?? 0,
+          quantity: product.stockQuantity,
+          minStock: product.inventory?.minStock || 0,
         },
       }));
-      setPreviewImages(product.images ?? []);
+
+      // Usar imageUrl direto, não array de images
+      if (product.imageUrl) {
+        setPreviewImages([product.imageUrl]);
+      }
     }
   }, [product]);
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (
+    field: string,
+    value: string | number | boolean,
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -94,6 +115,7 @@ export function ProductForm({
   const handleInventoryChange = (field: string, value: number) => {
     setFormData((prev) => ({
       ...prev,
+      stockQuantity: value, // Sincronizar com stockQuantity
       inventory: {
         ...prev.inventory,
         [field]: value,
@@ -141,8 +163,9 @@ export function ProductForm({
       newErrors.quantity = "Quantidade não pode ser negativa";
     }
 
-    if (!imageFile && !product) {
-      newErrors.images = "Pelo menos uma imagem é obrigatória";
+    // Na criação, imagem é obrigatória
+    if (!product && !imageFile) {
+      newErrors.images = "Imagem é obrigatória ao criar produto";
     }
 
     setErrors(newErrors);
@@ -159,12 +182,23 @@ export function ProductForm({
 
     setSaving(true);
     try {
+      console.log("=== FormData antes de enviar ===");
+      console.log("formData.category:", formData.category);
+      console.log("formData.stockQuantity:", formData.stockQuantity);
+      console.log("formData.inventory.quantity:", formData.inventory.quantity);
+
       const data = new FormData();
       data.append("Name", formData.name);
       data.append("Description", formData.description);
       data.append("Price", String(formData.price));
       data.append("StockQuantity", String(formData.stockQuantity));
       data.append("IsActive", "true");
+
+      // Adicionar InventoryId se existir no produto (para update)
+      // O backend retorna inventoryId em alguns casos
+      const inventoryId =
+        (product as unknown as { inventoryId?: string })?.inventoryId || "";
+      data.append("InventoryId", inventoryId);
 
       if (imageFile) {
         data.append("ImageUrl", imageFile);
@@ -178,21 +212,28 @@ export function ProductForm({
             ? EnumCategory[formData.category as keyof typeof EnumCategory]
             : formData.category;
 
+        console.log("categoryValue (numérico):", categoryValue);
         // Envia usando a nomenclatura correta para model binding
         data.append("Attributes[0].Category", String(categoryValue));
       }
 
+      // Debug: mostrar todos os campos do FormData
+      console.log("=== FormData entries ===");
+      for (const pair of data.entries()) {
+        console.log(pair[0] + ": " + pair[1]);
+      }
+
       if (product) {
-        await AdminProductService.updateProduct(product.id, data, true);
+        await AdminProductService.updateProduct(product.id, data);
         toast.success("Produto atualizado com sucesso");
       } else {
-        await AdminProductService.createProduct(data, true);
+        await AdminProductService.createProduct(data);
         toast.success("Produto criado com sucesso");
       }
       onSave();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save product:", error);
-      const errorMessage = parseApiError(error).message;
+      const errorMessage = parseApiError(error as AxiosError).message;
       toast.error(`Erro ao salvar produto: ${errorMessage}`);
     } finally {
       setSaving(false);

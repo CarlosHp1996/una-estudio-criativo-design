@@ -157,7 +157,7 @@ export interface CreateProductRequest {
 // Para response
 export interface ProductAttributeDto {
   id?: string | null;
-  category: string; // Backend retorna como string (ex: "Teste1")
+  category: EnumCategory; // Backend retorna enum (Teste1=0, Teste2=1, Teste3=2)
 }
 
 export interface ProductResponse {
