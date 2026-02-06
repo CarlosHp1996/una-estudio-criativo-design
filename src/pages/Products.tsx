@@ -78,11 +78,11 @@ const Products = () => {
         const response = await ProductService.getProducts(
           currentPage,
           pageSize,
-          filters
+          filters,
         );
 
         setProductsResponse(response);
-        setProducts(response.items);
+        setProducts(response.value?.products || []);
       } catch (error) {
         console.error("Failed to load products:", error);
         const errorMessage = parseApiError(error as any).message;
@@ -106,7 +106,7 @@ const Products = () => {
         setSearchParams({ categoria: categoryId });
       }
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const handleSearchChange = useCallback((value: string) => {
@@ -232,7 +232,7 @@ const Products = () => {
                             {pageNum}
                           </Button>
                         );
-                      }
+                      },
                     )}
 
                     <Button

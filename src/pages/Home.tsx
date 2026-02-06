@@ -17,11 +17,8 @@ const Home = () => {
   useEffect(() => {
     const loadFeaturedProducts = async () => {
       try {
-        const response = await ProductService.getProducts({
-          pageNumber: 1,
-          pageSize: 3,
-        });
-        setFeaturedProducts(response.products);
+        const response = await ProductService.getProducts(1, 3);
+        setFeaturedProducts(response.value?.products || []);
       } catch (error) {
         console.error("Failed to load featured products:", error);
       } finally {
