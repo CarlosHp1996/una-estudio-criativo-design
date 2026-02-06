@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, memo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface OptimizedImageProps {
@@ -26,6 +26,7 @@ const OptimizedImage = memo(
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
     const [isInView, setIsInView] = useState(priority);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const handleLoad = useCallback(() => {
       setIsLoaded(true);
@@ -36,32 +37,37 @@ const OptimizedImage = memo(
       setIsLoaded(true);
     }, []);
 
-    // Intersection Observer for lazy loading
-    const imgRef = useCallback(
-      (node: HTMLImageElement | null) => {
-        if (node && !priority && !isInView) {
-          const observer = new IntersectionObserver(
-            ([entry]) => {
-              if (entry.isIntersecting) {
-                setIsInView(true);
-                observer.unobserve(node);
-              }
-            },
-            {
-              rootMargin: "50px",
-              threshold: 0.1,
-            }
-          );
-          observer.observe(node);
-          return () => observer.unobserve(node);
+    // Intersection Observer for lazy loading - observa o container, não a imagem
+    useEffect(() => {
+      if (!containerRef.current || priority || isInView) return;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setIsInView(true);
+          }
+        },
+        {
+          rootMargin: "50px",
+          threshold: 0.01,
         }
-      },
-      [priority, isInView]
-    );
+      );
+
+      observer.observe(containerRef.current);
+
+      return () => {
+        observer.disconnect();
+      };
+    }, [priority, isInView]);
 
     // Generate optimized src based on device capabilities
     const getOptimizedSrc = useCallback(
       (originalSrc: string, targetWidth?: number) => {
+        // Return placeholder if src is invalid
+        if (!originalSrc || typeof originalSrc !== 'string') {
+          return placeholder;
+        }
+
         // If it's already an optimized URL or data URL, return as is
         if (
           originalSrc.includes("data:") ||
@@ -70,27 +76,39 @@ const OptimizedImage = memo(
           return originalSrc;
         }
 
+        // If it's an absolute URL (starts with http:// or https://), return as is
+        // Don't try to optimize external or backend URLs
+        if (originalSrc.startsWith('http://') || originalSrc.startsWith('https://')) {
+          return originalSrc;
+        }
+
         // For demo purposes, we'll add query params for optimization
         // In a real app, this would integrate with image CDN like Cloudinary, Imagekit, etc.
-        const url = new URL(originalSrc, window.location.origin);
+        try {
+          const url = new URL(originalSrc, window.location.origin);
 
-        if (targetWidth) {
-          url.searchParams.set("w", targetWidth.toString());
+          if (targetWidth) {
+            url.searchParams.set("w", targetWidth.toString());
+          }
+
+          // Add format optimization
+          if ("webp" in new Image()) {
+            url.searchParams.set("format", "webp");
+          }
+
+          // Add quality optimization for non-critical images
+          if (!priority) {
+            url.searchParams.set("q", "80");
+          }
+
+          return url.toString();
+        } catch (error) {
+          // If URL parsing fails, return original
+          console.warn('Failed to parse image URL:', originalSrc, error);
+          return originalSrc;
         }
-
-        // Add format optimization
-        if ("webp" in new Image()) {
-          url.searchParams.set("format", "webp");
-        }
-
-        // Add quality optimization for non-critical images
-        if (!priority) {
-          url.searchParams.set("q", "80");
-        }
-
-        return url.toString();
       },
-      [priority]
+      [priority, placeholder]
     );
 
     const optimizedSrc = getOptimizedSrc(src, width);
@@ -98,6 +116,7 @@ const OptimizedImage = memo(
 
     return (
       <div
+        ref={containerRef}
         className={cn("relative overflow-hidden", className)}
         style={{ width, height }}
       >
@@ -117,7 +136,6 @@ const OptimizedImage = memo(
         {/* Main image */}
         {shouldShowImage && (
           <img
-            ref={imgRef}
             src={hasError && fallback ? fallback : optimizedSrc}
             alt={alt}
             width={width}

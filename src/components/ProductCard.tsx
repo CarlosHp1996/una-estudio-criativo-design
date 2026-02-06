@@ -3,17 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
-import { memo, useCallback, useRef, useMemo } from "react";
+import { memo, useCallback, useRef, useMemo, useEffect } from "react";
 import OptimizedImage from "@/components/ui/optimized-image";
 import { useIntersectionObserver } from "@/hooks/useOptimization";
 import { ProductCardSkeleton } from "@/components/ui/smart-skeleton";
 import { ShoppingCart, Heart } from "lucide-react";
+import { PRODUCT_PLACEHOLDER } from "@/lib/placeholders";
 
 interface ProductCardProps {
   id: string;
   name: string;
   price: number;
-  image: string;
+  image?: string;
+  imageUrl?: string; // Backend usa imageUrl ao invés de image
   category: string;
   lazy?: boolean;
   originalPrice?: number;
@@ -29,6 +31,7 @@ const ProductCard = memo(
     name,
     price,
     image,
+    imageUrl,
     category,
     lazy = true,
     originalPrice,
@@ -37,8 +40,18 @@ const ProductCard = memo(
     onFavorite,
     isFavorited = false,
   }: ProductCardProps) => {
+    // Usa imageUrl se disponível, caso contrário usa image
+    const productImage = imageUrl || image || "";
+
     const { addItem } = useCart();
     const cardRef = useRef<HTMLDivElement>(null);
+
+    // Debug: Verificar se há imagem
+    useEffect(() => {
+      if (!productImage) {
+        console.warn("Product without image:", { id, name, image, imageUrl });
+      }
+    }, [productImage, id, name, image, imageUrl]);
 
     // Intersection observer for lazy loading
     const { isIntersecting } = useIntersectionObserver(cardRef, {
@@ -68,10 +81,10 @@ const ProductCard = memo(
         id,
         name,
         price,
-        image,
+        image: productImage,
         quantity: 1,
       }),
-      [id, name, price, image]
+      [id, name, price, productImage],
     );
 
     const handleAddToCart = useCallback(() => {
@@ -114,7 +127,7 @@ const ProductCard = memo(
           <Link to={`/produto/${id}`}>
             <div className="aspect-square overflow-hidden bg-muted">
               <OptimizedImage
-                src={image}
+                src={productImage || PRODUCT_PLACEHOLDER}
                 alt={name}
                 className="w-full h-full group-hover:scale-105 transition-smooth object-cover"
                 width={300}
@@ -230,7 +243,7 @@ const ProductCard = memo(
         </CardFooter>
       </Card>
     );
-  }
+  },
 );
 
 ProductCard.displayName = "ProductCard";

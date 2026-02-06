@@ -56,43 +56,43 @@ const Products = () => {
   }, []);
 
   // Load products when filters change
-  useEffect(() => {
-    const loadProducts = useCallback(async () => {
-      setIsLoading(true);
-      setError(null);
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const filters: ProductFilters = {
-          sortBy: "createdAt",
-          sortOrder: "desc",
-        };
+    try {
+      const filters: ProductFilters = {
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      };
 
-        if (searchTerm.trim()) {
-          filters.search = searchTerm.trim();
-        }
-
-        if (selectedCategory && selectedCategory !== "todos") {
-          filters.category = selectedCategory;
-        }
-
-        const response = await ProductService.getProducts(
-          currentPage,
-          pageSize,
-          filters,
-        );
-
-        setProductsResponse(response);
-        setProducts(response.value?.products || []);
-      } catch (error) {
-        console.error("Failed to load products:", error);
-        const errorMessage = parseApiError(error as any).message;
-        setError(errorMessage);
-        setProducts([]);
-      } finally {
-        setIsLoading(false);
+      if (searchTerm.trim()) {
+        filters.search = searchTerm.trim();
       }
-    }, [searchTerm, selectedCategory, currentPage]);
 
+      if (selectedCategory && selectedCategory !== "todos") {
+        filters.category = selectedCategory;
+      }
+
+      const response = await ProductService.getProducts(
+        currentPage,
+        pageSize,
+        filters,
+      );
+
+      setProductsResponse(response);
+      setProducts(response.value?.products || []);
+    } catch (error) {
+      console.error("Failed to load products:", error);
+      const errorMessage = parseApiError(error as any).message;
+      setError(errorMessage);
+      setProducts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchTerm, selectedCategory, currentPage]);
+
+  useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 

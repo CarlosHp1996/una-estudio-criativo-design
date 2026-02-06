@@ -15,6 +15,38 @@ import type {
 } from "@/types/api";
 
 export class ProductService {
+  // Mapeia produtos do backend para o formato esperado pelo frontend
+  private static mapProduct(product: any): Product {
+    const mapped = {
+      ...product,
+      // Garantir compatibilidade de campos
+      image: product.imageUrl || product.image,
+      imageUrl: product.imageUrl || product.image,
+      stock: product.stockQuantity ?? product.stock,
+      stockQuantity: product.stockQuantity ?? product.stock ?? 0,
+      // Extrair categoria dos attributes se disponível
+      category: product.attributes?.[0]?.category ?? product.category,
+      // Garantir que images seja um array
+      images: product.images || (product.imageUrl ? [product.imageUrl] : []),
+      // Criar objeto inventory para compatibilidade
+      inventory: {
+        quantity: product.stockQuantity ?? product.stock ?? 0,
+        minStock: 5,
+        isInStock: (product.stockQuantity ?? product.stock ?? 0) > 0,
+      },
+    };
+
+    // Debug log
+    if (!mapped.imageUrl && !mapped.image) {
+      console.warn("Product mapped without image:", {
+        original: product,
+        mapped,
+      });
+    }
+
+    return mapped;
+  }
+
   // Get all products with pagination and filters
   static async getProducts(
     page: number = 1,
@@ -51,22 +83,30 @@ export class ProductService {
 
     const url = `/Product/get?${params.toString()}`;
 
+    let response: ProductsResponse;
     if (!useCache) {
-      return await apiUtils.get<ProductsResponse>(url);
+      response = await apiUtils.get<ProductsResponse>(url);
+    } else {
+      // Generate cache key based on parameters
+      const cacheKey = generateCacheKey("products", {
+        page,
+        pageSize,
+        ...filters,
+      });
+
+      response = await cachedRequest(
+        cacheKey,
+        () => apiUtils.get<ProductsResponse>(url),
+        CacheConfig.DYNAMIC,
+      );
     }
 
-    // Generate cache key based on parameters
-    const cacheKey = generateCacheKey("products", {
-      page,
-      pageSize,
-      ...filters,
-    });
+    // Mapear produtos para garantir compatibilidade
+    if (response.value?.products) {
+      response.value.products = response.value.products.map(this.mapProduct);
+    }
 
-    return await cachedRequest(
-      cacheKey,
-      () => apiUtils.get<ProductsResponse>(url),
-      CacheConfig.DYNAMIC,
-    );
+    return response;
   }
 
   // Get product by ID - using the same endpoint with filters

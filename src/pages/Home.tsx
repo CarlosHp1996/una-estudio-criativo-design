@@ -18,7 +18,9 @@ const Home = () => {
     const loadFeaturedProducts = async () => {
       try {
         const response = await ProductService.getProducts(1, 3);
-        setFeaturedProducts(response.value?.products || []);
+        const products = response.value?.products || [];
+        console.log("Featured products loaded:", products);
+        setFeaturedProducts(products);
       } catch (error) {
         console.error("Failed to load featured products:", error);
       } finally {
