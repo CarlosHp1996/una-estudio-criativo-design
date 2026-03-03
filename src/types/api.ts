@@ -60,7 +60,8 @@ export interface Product {
   description: string;
   price: number;
   stockQuantity: number; // ✅ Backend retorna stockQuantity, não inventory.quantity
-  imageUrl: string; // ✅ Backend retorna imageUrl (string), não images (array)
+  imageUrl?: string; // Compatível com código antigo
+  imageUrls?: string[]; // ✅ Backend agora retorna array de strings
   isActive: boolean;
   attributes: ProductAttributeDto[]; // ✅ Backend retorna attributes com category
   createdAt?: string;
@@ -76,7 +77,7 @@ export interface Product {
     minStock: number;
     isInStock: boolean; // Calculado de stockQuantity > 0
   };
-  images?: string[]; // Para compatibilidade (array com imageUrl)
+  images?: string[]; // Para compatibilidade (array com imageUrls)
 }
 
 // EnumCategory igual backend
@@ -126,6 +127,8 @@ export interface ProductFilters {
   tags?: string[];
   sortBy?: "name" | "price" | "rating" | "createdAt";
   sortOrder?: "asc" | "desc";
+  inStock?: boolean;
+  isActive?: boolean;
 }
 
 export interface Category {
@@ -145,7 +148,8 @@ export interface CreateProductRequest {
   description: string;
   price: number;
   stockQuantity: number;
-  imageUrl?: File | null;
+  images?: File[];
+  imageUrl?: File | null; // Mantido por compatibilidade
   isActive: boolean;
   attributes?: ProductAttributeRequest[];
   // Campos extras para o formulário
@@ -167,6 +171,7 @@ export interface ProductResponse {
   price: number;
   stockQuantity: number;
   imageUrl?: string;
+  imageUrls?: string[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -180,12 +185,13 @@ export interface UpdateProductRequest extends Partial<CreateProductRequest> {
 
 // Cart types
 export interface CartItem {
-  id: string;
   productId: string;
   productName: string;
-  productPrice: number;
+  productImage: string;
+  unitPrice: number;
   quantity: number;
-  subtotal: number;
+  totalPrice: number;
+  addedAt?: string;
 }
 
 export interface Cart {
@@ -362,6 +368,8 @@ export interface ProductFilters extends PaginationParams {
   category?: string;
   minPrice?: number;
   maxPrice?: number;
+  inStock?: boolean;
+  isActive?: boolean;
 }
 
 // Error response type

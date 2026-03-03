@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Outlet } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { DashboardNavigation } from "./DashboardNavigation";
+import Header from "@/components/Header";
 
 interface DashboardLayoutProps {
   children?: ReactNode;
@@ -13,8 +14,9 @@ interface DashboardLayoutProps {
  */
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Header />
+      <div className="flex-1 container mx-auto px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Navegação Lateral */}
           <aside className="lg:w-64 w-full">

@@ -64,6 +64,8 @@ const Products = () => {
       const filters: ProductFilters = {
         sortBy: "createdAt",
         sortOrder: "desc",
+        isActive: true, // Apenas ativos
+        inStock: true, // Apenas em estoque
       };
 
       if (searchTerm.trim()) {
@@ -78,6 +80,7 @@ const Products = () => {
         currentPage,
         pageSize,
         filters,
+        false, // useCache = false pra evitar carregar produtos antigos/deletados
       );
 
       setProductsResponse(response);
@@ -128,7 +131,7 @@ const Products = () => {
         product.description.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesCategory =
-        selectedCategory === "todos" || product.categoryId === selectedCategory;
+        selectedCategory === "todos" || product.category === selectedCategory;
 
       return matchesSearch && matchesCategory;
     });
@@ -198,60 +201,83 @@ const Products = () => {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {products.map((product) => (
-                    <ProductCard key={product.id} {...product} />
+                    <ProductCard
+                      key={product.id}
+                      {...product}
+                      category={
+                        product.category ? String(product.category) : undefined
+                      }
+                    />
                   ))}
                 </div>
 
                 {/* Pagination */}
-                {productsResponse && productsResponse.totalPages > 1 && (
-                  <div className="flex justify-center mt-12 gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Anterior
-                    </Button>
+                {productsResponse &&
+                  productsResponse.value &&
+                  productsResponse.value.pagination &&
+                  productsResponse.value.pagination.totalPages > 1 && (
+                    <div className="flex justify-center mt-12 gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
 
-                    {Array.from(
-                      { length: Math.min(5, productsResponse.totalPages) },
-                      (_, i) => {
-                        const pageNum =
-                          currentPage <= 3 ? i + 1 : currentPage + i - 2;
+                      {Array.from(
+                        {
+                          length: Math.min(
+                            5,
+                            productsResponse.value.pagination.totalPages,
+                          ),
+                        },
+                        (_, i) => {
+                          const pageNum =
+                            currentPage <= 3 ? i + 1 : currentPage + i - 2;
 
-                        if (pageNum > productsResponse.totalPages) return null;
+                          if (
+                            pageNum >
+                            productsResponse.value!.pagination.totalPages
+                          )
+                            return null;
 
-                        return (
-                          <Button
-                            key={pageNum}
-                            variant={
-                              pageNum === currentPage ? "default" : "outline"
-                            }
-                            onClick={() => handlePageChange(pageNum)}
-                          >
-                            {pageNum}
-                          </Button>
-                        );
-                      },
-                    )}
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={
+                                pageNum === currentPage ? "default" : "outline"
+                              }
+                              onClick={() => handlePageChange(pageNum)}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        },
+                      )}
 
-                    <Button
-                      variant="outline"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === productsResponse.totalPages}
-                    >
-                      Próxima
-                    </Button>
-                  </div>
-                )}
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={
+                          currentPage ===
+                          productsResponse.value!.pagination.totalPages
+                        }
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  )}
 
                 {/* Results info */}
-                {productsResponse && (
-                  <div className="text-center mt-6 text-sm text-muted-foreground">
-                    Mostrando {products.length} de {productsResponse.totalItems}{" "}
-                    produtos
-                  </div>
-                )}
+                {productsResponse &&
+                  productsResponse.value &&
+                  productsResponse.value.pagination && (
+                    <div className="text-center mt-6 text-sm text-muted-foreground">
+                      Mostrando {products.length} de{" "}
+                      {productsResponse.value.pagination.totalItems} produtos
+                    </div>
+                  )}
               </>
             ) : (
               <div className="text-center py-20">

@@ -56,8 +56,10 @@ export function ProductForm({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [previewImages, setPreviewImages] = useState<string[]>([]);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   useEffect(() => {
     if (product) {
@@ -86,9 +88,13 @@ export function ProductForm({
         },
       }));
 
-      // Usar imageUrl direto, não array de images
-      if (product.imageUrl) {
-        setPreviewImages([product.imageUrl]);
+      // Usar arrays de imageUrls/images
+      if (product.imageUrls && product.imageUrls.length > 0) {
+        setExistingImageUrls([...product.imageUrls]);
+      } else if (product.images && product.images.length > 0) {
+        setExistingImageUrls([...product.images]);
+      } else if (product.imageUrl) {
+        setExistingImageUrls([product.imageUrl]);
       }
     }
   }, [product]);
@@ -125,19 +131,28 @@ export function ProductForm({
 
   const handleImageUpload = (files: FileList) => {
     if (files.length === 0) return;
-    const file = files[0];
-    setImageFile(file);
+    const newFiles = Array.from(files);
+    setImageFiles((prev) => [...prev, ...newFiles]);
+
     // Preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreviewImages([reader.result as string]);
-    };
-    reader.readAsDataURL(file);
+    newFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrls((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    setPreviewImages([]);
+  const handleRemoveExistingImage = (index: number) => {
+    const urlToRemove = existingImageUrls[index];
+    setRemovedImageUrls((prev) => [...prev, urlToRemove]);
+    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveNewImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   const validateForm = (): boolean => {
@@ -163,9 +178,9 @@ export function ProductForm({
       newErrors.quantity = "Quantidade não pode ser negativa";
     }
 
-    // Na criação, imagem é obrigatória
-    if (!product && !imageFile) {
-      newErrors.images = "Imagem é obrigatória ao criar produto";
+    // Pelo menos uma imagem deve existir
+    if (existingImageUrls.length === 0 && imageFiles.length === 0) {
+      newErrors.images = "Pelo menos uma imagem é obrigatória";
     }
 
     setErrors(newErrors);
@@ -195,8 +210,13 @@ export function ProductForm({
         (product as unknown as { inventoryId?: string })?.inventoryId || "";
       data.append("InventoryId", inventoryId);
 
-      if (imageFile) {
-        data.append("ImageUrl", imageFile);
+      if (product) {
+        imageFiles.forEach((file) => data.append("NewImages", file));
+        removedImageUrls.forEach((url, i) =>
+          data.append(`RemovedImageUrls[${i}]`, url),
+        );
+      } else {
+        imageFiles.forEach((file) => data.append("Images", file));
       }
 
       // ✅ CORREÇÃO: Envia Attributes usando a convenção de índices do ASP.NET Core
@@ -373,6 +393,7 @@ export function ProductForm({
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={(e) =>
                   e.target.files && handleImageUpload(e.target.files)
                 }
@@ -404,27 +425,57 @@ export function ProductForm({
             )}
 
             {/* Image Preview */}
-            {previewImages.length > 0 && (
+            {(existingImageUrls.length > 0 || previewUrls.length > 0) && (
               <div>
-                <h4 className="text-sm font-medium mb-3">Imagem selecionada</h4>
+                <h4 className="text-sm font-medium mb-3">
+                  Imagens selecionadas
+                </h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="relative group">
-                    <img
-                      src={previewImages[0]}
-                      alt="Produto"
-                      className="w-full h-32 object-cover rounded-lg bg-gray-100"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                    <Badge className="absolute bottom-1 left-1 bg-green-600">
-                      Principal
-                    </Badge>
-                  </div>
+                  {/* Imagens Existentes */}
+                  {existingImageUrls.map((url, index) => (
+                    <div key={`existing-${index}`} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Produto ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg bg-gray-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExistingImage(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      {index === 0 && previewUrls.length === 0 && (
+                        <Badge className="absolute bottom-1 left-1 bg-green-600">
+                          Principal
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Novas Imagens */}
+                  {previewUrls.map((url, index) => (
+                    <div key={`new-${index}`} className="relative group">
+                      <img
+                        src={url}
+                        alt={`Nova Imagem ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg bg-gray-100 ring-2 ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveNewImage(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                      {index === 0 && existingImageUrls.length === 0 && (
+                        <Badge className="absolute bottom-1 left-1 bg-green-600">
+                          Principal
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

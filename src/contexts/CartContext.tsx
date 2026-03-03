@@ -59,7 +59,7 @@ const localCart = {
   addItem: (newItem: CartItem): CartItem[] => {
     const items = localCart.get();
     const existingIndex = items.findIndex(
-      (item) => item.productId === newItem.productId
+      (item) => item.productId === newItem.productId,
     );
 
     if (existingIndex >= 0) {
@@ -162,10 +162,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // Convert API cart items to UI cart items
   const convertToUIItems = (apiItems: APICartItem[]): CartItem[] => {
     return apiItems.map((item) => ({
-      id: item.id,
+      id: item.productId, // Use productId as id since backend CartItem has no unique id
       name: item.productName,
-      price: item.productPrice,
-      image: "", // Will need to fetch from product if needed
+      price: item.unitPrice,
+      image: item.productImage || "",
       quantity: item.quantity,
       productId: item.productId,
     }));
@@ -174,11 +174,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // Convert UI cart items to API cart items format for local storage
   const convertFromUIItems = (items: CartItem[]): APICartItem[] => {
     return items.map((item) => ({
-      id: item.id,
       productId: item.productId,
       productName: item.name,
-      productPrice: item.price,
+      productImage: item.image,
+      unitPrice: item.price,
       quantity: item.quantity,
+      totalPrice: item.price * item.quantity,
     }));
   };
 
@@ -187,7 +188,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const apiItems = convertFromUIItems(items);
     const totalAmount = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
-      0
+      0,
     );
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -338,7 +339,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const updateQuantity = async (
     itemId: string,
-    quantity: number
+    quantity: number,
   ): Promise<void> => {
     if (quantity <= 0) {
       await removeItem(itemId);

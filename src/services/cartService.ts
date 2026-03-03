@@ -11,8 +11,8 @@ export class CartService {
   // Get current user's cart
   static async getCart(): Promise<Cart> {
     try {
-      const cart = await apiUtils.get<Cart>("/cart");
-      return cart;
+      const response = await apiUtils.get<{ value: Cart }>("/cart");
+      return response.value;
     } catch (error: any) {
       // If cart doesn't exist, return empty cart structure
       if (error.response?.status === 404) {
@@ -32,25 +32,33 @@ export class CartService {
 
   // Add item to cart
   static async addToCart(data: AddToCartRequest): Promise<Cart> {
-    return await apiUtils.post<Cart>("/cart/items", data);
+    const response = await apiUtils.post<{ value: Cart }>("/cart/add", data);
+    return response.value;
   }
 
   // Update item quantity in cart
   static async updateCartItem(
     itemId: string,
-    data: UpdateCartRequest
+    data: UpdateCartRequest,
   ): Promise<Cart> {
-    return await apiUtils.put<Cart>(`/cart/items/${itemId}`, data);
+    const response = await apiUtils.put<{ value: Cart }>(
+      `/cart/update/${itemId}`,
+      data,
+    );
+    return response.value;
   }
 
   // Remove item from cart
   static async removeFromCart(itemId: string): Promise<Cart> {
-    return await apiUtils.delete<Cart>(`/cart/items/${itemId}`);
+    const response = await apiUtils.delete<{ value: Cart }>(
+      `/cart/remove/${itemId}`,
+    );
+    return response.value;
   }
 
   // Clear entire cart
   static async clearCart(): Promise<void> {
-    await apiUtils.delete<void>("/cart");
+    await apiUtils.delete<void>("/cart/clear");
   }
 
   // Apply coupon/discount code
@@ -80,7 +88,7 @@ export class CartService {
     localItems: Array<{
       productId: string;
       quantity: number;
-    }>
+    }>,
   ): Promise<Cart> {
     return await apiUtils.post<Cart>("/cart/sync", { items: localItems });
   }

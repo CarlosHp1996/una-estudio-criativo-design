@@ -120,7 +120,10 @@ export function AdminProductsPage() {
           minStock: 10, // Valor padrão, ajuste conforme necessário
           isInStock: product.stockQuantity > 0,
         },
-        images: product.imageUrl ? [product.imageUrl] : [],
+        images:
+          product.imageUrls ||
+          product.images ||
+          (product.imageUrl ? [product.imageUrl] : []),
         category:
           product.attributes && product.attributes.length > 0
             ? product.attributes[0].category

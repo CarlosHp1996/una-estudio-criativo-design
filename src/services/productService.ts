@@ -20,14 +20,17 @@ export class ProductService {
     const mapped = {
       ...product,
       // Garantir compatibilidade de campos
-      image: product.imageUrl || product.image,
-      imageUrl: product.imageUrl || product.image,
+      image: product.imageUrls?.[0] || product.imageUrl || product.image,
+      imageUrl: product.imageUrls?.[0] || product.imageUrl || product.image,
       stock: product.stockQuantity ?? product.stock,
       stockQuantity: product.stockQuantity ?? product.stock ?? 0,
       // Extrair categoria dos attributes se disponível
       category: product.attributes?.[0]?.category ?? product.category,
       // Garantir que images seja um array
-      images: product.images || (product.imageUrl ? [product.imageUrl] : []),
+      images:
+        product.imageUrls ||
+        product.images ||
+        (product.imageUrl ? [product.imageUrl] : []),
       // Criar objeto inventory para compatibilidade
       inventory: {
         quantity: product.stockQuantity ?? product.stock ?? 0,
@@ -78,6 +81,16 @@ export class ProductService {
       }
       if (filters.sortOrder) {
         params.append("SortOrder", filters.sortOrder);
+      }
+      if (filters.isActive !== undefined) {
+        params.append("IsActive", filters.isActive.toString());
+      }
+      if (filters.inStock === true) {
+        params.append("StockQuantity", "1"); // inStock means StockQuantity > 0, so >= 1
+      } else if (filters.inStock === false) {
+        // Technically out of stock = < 1, but our backend filter StockQuantity usually means >= value
+        // So this might require backend change if they want strictly out of stock items
+        // Since we only pass true, skipping false logic.
       }
     }
 
@@ -147,6 +160,21 @@ export class ProductService {
     // TODO: Implement backend endpoint /Product/categories
     // For now, return empty array - categories will be extracted from products
     return [];
+  }
+
+  // Get recommendations for a product
+  static async getRecommendations(
+    productId: string,
+    limit: number = 4,
+  ): Promise<Product[]> {
+    try {
+      // Just returning recent products as recommendations for now
+      const response = await this.getProducts(1, limit);
+      return response.value?.products.filter((p) => p.id !== productId) || [];
+    } catch (e) {
+      console.warn("Error getting recommendations", e);
+      return [];
+    }
   }
 }
 

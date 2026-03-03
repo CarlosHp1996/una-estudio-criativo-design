@@ -36,7 +36,7 @@ const ProductDetail = () => {
         try {
           const recommendations = await ProductService.getRecommendations(
             id,
-            4
+            4,
           );
           setRelatedProducts(recommendations);
         } catch (relatedError) {
@@ -147,28 +147,36 @@ const ProductDetail = () => {
           <div>
             <div className="aspect-square overflow-hidden rounded-lg bg-muted mb-4">
               <img
-                src={product.images[selectedImage]}
+                src={
+                  product.images && product.images.length > 0
+                    ? product.images[selectedImage]
+                    : "/placeholder-product.png"
+                }
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {product.images.map((img, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`aspect-square overflow-hidden rounded-lg border-2 transition-smooth ${
-                    selectedImage === index ? "border-primary" : "border-border"
-                  }`}
-                >
-                  <img
-                    src={img}
-                    alt={`${product.name} ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
-            </div>
+            {product.images && product.images.length > 1 && (
+              <div className="grid grid-cols-3 gap-4">
+                {product.images.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`aspect-square overflow-hidden rounded-lg border-2 transition-smooth ${
+                      selectedImage === index
+                        ? "border-primary"
+                        : "border-border"
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Info */}
@@ -238,7 +246,11 @@ const ProductDetail = () => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedProducts.map((p) => (
-                <ProductCard key={p.id} {...p} />
+                <ProductCard
+                  key={p.id}
+                  {...p}
+                  category={p.category ? String(p.category) : undefined}
+                />
               ))}
             </div>
           </div>
