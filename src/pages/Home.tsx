@@ -17,7 +17,7 @@ const Home = () => {
   useEffect(() => {
     const loadFeaturedProducts = async () => {
       try {
-        const response = await ProductService.getProducts(1, 3);
+        const response = await ProductService.getProducts(1, 3, { inStock: true });
         const products = response.value?.products || [];
         console.log("Featured products loaded:", products);
         setFeaturedProducts(products);
@@ -87,7 +87,11 @@ const Home = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {featuredProducts.map((product) => (
-              <ProductCard key={product.id} {...product} />
+              <ProductCard 
+                key={product.id} 
+                {...product} 
+                category={String(product.category || "")} 
+              />
             ))}
           </div>
         )}
@@ -115,11 +119,11 @@ const Home = () => {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {["Placas", "Pratos", "Copos", "Personalizados"].map(
+            {["Placas", "Pratos", "Canecas", "Personalizados"].map(
               (category, index) => (
                 <Link
                   key={category}
-                  to={`/produtos?categoria=${category.toLowerCase()}`}
+                  to={`/produtos?categoria=${category}`}
                   className="group hover-lift"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >

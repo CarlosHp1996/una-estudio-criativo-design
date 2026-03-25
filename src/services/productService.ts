@@ -25,7 +25,9 @@ export class ProductService {
       stock: product.stockQuantity ?? product.stock,
       stockQuantity: product.stockQuantity ?? product.stock ?? 0,
       // Extrair categoria dos attributes se disponível
-      category: product.attributes?.[0]?.category ?? product.category,
+      category: typeof product.attributes?.[0]?.category === 'number' 
+        ? EnumCategory[product.attributes[0].category] 
+        : (product.attributes?.[0]?.category ?? product.category),
       // Garantir que images seja um array
       images:
         product.imageUrls ||
@@ -80,7 +82,7 @@ export class ProductService {
         params.append("SortBy", filters.sortBy);
       }
       if (filters.sortOrder) {
-        params.append("SortOrder", filters.sortOrder);
+        params.append("SortDirection", filters.sortOrder);
       }
       if (filters.isActive !== undefined) {
         params.append("IsActive", filters.isActive.toString());

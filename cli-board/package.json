@@ -1,0 +1,16 @@
+{
+  "name": "cli-board",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "sync": "node sync.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@octokit/rest": "^22.0.1"
+  }
+}

@@ -61,6 +61,7 @@ import { Product, EnumCategory } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
 import { ProductForm } from "@/components/admin/ProductForm";
+import { Switch } from "@/components/ui/switch";
 
 export function AdminProductsPage() {
   const [searchParams] = useSearchParams();
@@ -187,6 +188,26 @@ export function AdminProductsPage() {
     }
   };
 
+  const handleToggleStatus = async (productId: string, currentStatus: boolean) => {
+    try {
+      const newStatus = !currentStatus;
+      await AdminProductService.updateProductStatus(productId, newStatus);
+      
+      // Update local state
+      setProducts(prevProducts => 
+        prevProducts.map(p => 
+          p.id === productId ? { ...p, isActive: newStatus } : p
+        )
+      );
+      
+      toast.success(`Produto ${newStatus ? 'ativado' : 'desativado'} com sucesso`);
+    } catch (error: unknown) {
+      console.error("Failed to toggle status:", error);
+      const errorMessage = parseApiError(error as AxiosError).message;
+      toast.error(`Erro ao atualizar status: ${errorMessage}`);
+    }
+  };
+
   const handleProductSaved = () => {
     setShowProductForm(false);
     setEditingProduct(null);
@@ -290,7 +311,6 @@ export function AdminProductsPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="in_stock">Em Estoque</SelectItem>
-                  <SelectItem value="low_stock">Estoque Baixo</SelectItem>
                   <SelectItem value="out_of_stock">Sem Estoque</SelectItem>
                 </SelectContent>
               </Select>
@@ -400,6 +420,7 @@ export function AdminProductsPage() {
                     <TableHead>Preço</TableHead>
                     <TableHead>Estoque</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Ativo</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -462,6 +483,12 @@ export function AdminProductsPage() {
                           </div>
                         </TableCell>
                         <TableCell>{getStockBadge(product)}</TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={product.isActive}
+                            onCheckedChange={() => handleToggleStatus(product.id, !!product.isActive)}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Button

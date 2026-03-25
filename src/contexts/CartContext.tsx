@@ -109,6 +109,9 @@ interface CartContextType {
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  isAddedToCartOpen: boolean;
+  setIsAddedToCartOpen: (open: boolean) => void;
+  lastAddedItem: CartItem | null;
 }
 
 // Cart state management
@@ -158,6 +161,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     isLoading: false,
     error: null,
   });
+
+  const [isAddedToCartOpen, setIsAddedToCartOpen] = useState(false);
+  const [lastAddedItem, setLastAddedItem] = useState<CartItem | null>(null);
 
   // Convert API cart items to UI cart items
   const convertToUIItems = (apiItems: APICartItem[]): CartItem[] => {
@@ -303,7 +309,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: "CART_SUCCESS", payload: { cart: localCartData } });
       }
 
-      toast.success(`${item.name} adicionado ao carrinho!`);
+      setLastAddedItem(item);
+      setIsAddedToCartOpen(true);
+      // Disable original toast to avoid duplication with the new drawer
+      // toast.success(`${item.name} adicionado ao carrinho!`);
     } catch (error) {
       console.error("Failed to add item to cart:", error);
       const errorMessage = parseApiError(error as any).message;
@@ -429,6 +438,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         updateQuantity,
         clearCart,
         refreshCart,
+        isAddedToCartOpen,
+        setIsAddedToCartOpen,
+        lastAddedItem,
       }}
     >
       {children}

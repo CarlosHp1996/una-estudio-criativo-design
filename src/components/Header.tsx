@@ -5,12 +5,14 @@ import { useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useIsAdmin } from "./AdminRoute";
 import UserMenu from "./UserMenu";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { items } = useCart();
   const location = useLocation();
   const isAdmin = useIsAdmin();
+  const { isAuthenticated, logout } = useAuth();
   const cartItemsCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const isHomePage = location.pathname === "/";
 
@@ -131,8 +133,8 @@ const Header = () => {
               </Link>
             )}
 
-            {/* User Menu - Hidden on Mobile */}
-            <div className="hidden md:block">
+            {/* User Menu - Visible on all sizes */}
+            <div className="flex">
               <UserMenu />
             </div>
 
@@ -210,20 +212,50 @@ const Header = () => {
             {/* Mobile User Menu */}
             <div className="pt-2 border-t border-border">
               <div className="flex flex-col gap-2">
-                <Link
-                  to="/login"
-                  className="text-foreground hover:text-primary transition-smooth"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Fazer Login
-                </Link>
-                <Link
-                  to="/registro"
-                  className="text-foreground hover:text-primary transition-smooth"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Criar Conta
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      to="/dashboard"
+                      className="text-foreground hover:text-primary transition-smooth"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Meu Dashboard
+                    </Link>
+                    <Link
+                      to="/dashboard/pedidos"
+                      className="text-foreground hover:text-primary transition-smooth"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Meus Pedidos
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="text-left text-red-600 hover:text-red-700 transition-smooth"
+                    >
+                      Sair da Conta
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="text-foreground hover:text-primary transition-smooth"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Fazer Login
+                    </Link>
+                    <Link
+                      to="/registro"
+                      className="text-foreground hover:text-primary transition-smooth"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Criar Conta
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </nav>

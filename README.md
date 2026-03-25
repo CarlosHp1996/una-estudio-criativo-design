@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
+# UNA Estudio Criativo - Frontend E-commerce
 
-## Project info
+Frontend do e-commerce da UNA Estudio Criativo, especializada em arte pintada à mão com peças únicas em madeira, cerâmica e vidro.
 
-**URL**: https://lovable.dev/projects/0ad019e6-9fff-4c64-ad67-adc63e2453f9
+## Stack Tecnológico
 
-## How can I edit this code?
+- **React 18.3.1** com TypeScript
+- **Vite** como ferramenta de build
+- **Tailwind CSS** para estilização
+- **React Router v6** para navegação
+- **Radix UI** para componentes acessíveis
+- **React Hook Form + Zod** para formulários e validação
+- **Context API** para gerenciamento de estado
 
-There are several ways of editing your application.
+## Desenvolvimento Local
 
-**Use Lovable**
+### Pré-requisitos
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/0ad019e6-9fff-4c64-ad67-adc63e2453f9) and start prompting.
+- Node.js 18+
+- pnpm (gerenciador de pacotes)
 
-Changes made via Lovable will be committed automatically to this repo.
+### Instalação e Execução
 
-**Use your preferred IDE**
+```bash
+# Instalar dependências
+pnpm install
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Executar em modo desenvolvimento
+pnpm dev
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Build para produção
+pnpm build
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Preview do build
+pnpm preview
 ```
 
-**Edit a file directly in GitHub**
+### Scripts Disponíveis
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```json
+{
+  "dev": "vite",
+  "build": "vite build",
+  "build:dev": "vite build --mode development",
+  "lint": "eslint .",
+  "preview": "vite preview"
+}
+```
 
-**Use GitHub Codespaces**
+## Estrutura do Projeto
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+src/
+├── assets/           # Imagens, ícones, fonts
+├── components/       # Componentes reutilizáveis
+│   └── ui/          # Componentes UI base (Radix)
+├── contexts/        # React Contexts (Cart, Auth)
+├── data/            # Dados estáticos e mocks
+├── hooks/           # Custom hooks
+├── layouts/         # Layout components
+├── lib/             # Utilitários e configurações
+├── pages/           # Componentes de página
+└── types/           # Tipos TypeScript
+```
 
-## What technologies are used for this project?
+## Funcionalidades
 
-This project is built with:
+### Implementadas
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- ✅ Catálogo de produtos com filtros
+- ✅ Carrinho de compras local
+- ✅ Design responsivo
+- ✅ Navegação principal
+- ✅ Páginas: Home, Produtos, Sobre, Contato, Carrinho, Checkout
 
-## How can I deploy this project?
+### Em Desenvolvimento
 
-Simply open [Lovable](https://lovable.dev/projects/0ad019e6-9fff-4c64-ad67-adc63e2453f9) and click on Share -> Publish.
+- 🚧 Sistema de autenticação de usuários
+- 🚧 Dashboard do usuário
+- 🚧 Integração com API backend
+- 🚧 Login social (Google/Facebook)
 
-## Can I connect a custom domain to my Lovable project?
+## Deploy
 
-Yes, you can!
+O projeto está configurado para deploy automático no Vercel/Netlify através de push no repositório.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**UNA Estudio Criativo** - Arte feita à mão com amor ❤️

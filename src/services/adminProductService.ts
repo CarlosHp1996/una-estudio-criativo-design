@@ -29,7 +29,9 @@ export class AdminProductService {
     queryParams.append("PageSize", pageSize.toString());
 
     // Adicionar filtros conforme backend
-    if (filters?.stockQuantity !== undefined) {
+    if (filters?.inStock === true) {
+      queryParams.append("StockQuantity", "1");
+    } else if (filters?.stockQuantity !== undefined) {
       queryParams.append("StockQuantity", filters.stockQuantity.toString());
     }
     if (filters?.search) {
@@ -37,6 +39,12 @@ export class AdminProductService {
     }
     if (filters?.category) {
       queryParams.append("Category", filters.category);
+    }
+    if (filters?.minPrice !== undefined) {
+      queryParams.append("MinPrice", filters.minPrice.toString());
+    }
+    if (filters?.maxPrice !== undefined) {
+      queryParams.append("MaxPrice", filters.maxPrice.toString());
     }
 
     const response = await httpClient.get<ProductsResponse>(
@@ -88,18 +96,35 @@ export class AdminProductService {
   }
 
   /**
+   * Update only product status (active/inactive)
+   */
+  static async updateProductStatus(id: string, isActive: boolean): Promise<any> {
+    const formData = new FormData();
+    formData.append("IsActive", isActive.toString());
+
+    const response = await httpClient.put(`/Product/update/${id}`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  }
+
+  /**
    * Delete a product (admin only)
    */
   static async deleteProduct(id: string): Promise<any> {
     const token = localStorage.getItem("una_token");
     const response = await fetch(
-      `https://localhost:4242/api/Product/delete/${id}`,
+      `https://localhost:4242/api/Product/delete`,
       {
         method: "DELETE",
         headers: {
+          "Content-Type": "application/json",
           accept: "text/plain",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        body: JSON.stringify([id]),
       },
     );
     if (!response.ok) {
@@ -140,7 +165,23 @@ export class AdminProductService {
    * Bulk delete products (admin only)
    */
   static async bulkDeleteProducts(productIds: string[]): Promise<void> {
-    await httpClient.delete("/products/bulk", { data: { ids: productIds } });
+    const token = localStorage.getItem("una_token");
+    const response = await fetch(
+      `https://localhost:4242/api/Product/delete`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "text/plain",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(productIds),
+      },
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error?.message || "Erro ao deletar produtos");
+    }
   }
 
   /**

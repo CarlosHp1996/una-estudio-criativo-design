@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, ChevronDown } from "lucide-react";
 import ProductService from "@/services/productService";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   Product,
   ProductsResponse,
@@ -29,6 +36,8 @@ const Products = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const pageSize = 12;
 
   // Load categories on mount
@@ -45,9 +54,10 @@ const Products = () => {
         // Use fallback categories
         setCategories([
           { id: "todos", name: "Todos", productCount: 0 },
-          { id: "canecas", name: "Canecas", productCount: 0 },
-          { id: "pratos", name: "Pratos", productCount: 0 },
-          { id: "placas", name: "Placas Decorativas", productCount: 0 },
+          { id: "Canecas", name: "Canecas", productCount: 0 },
+          { id: "Pratos", name: "Pratos", productCount: 0 },
+          { id: "Placas", name: "Placas", productCount: 0 },
+          { id: "Personalizados", name: "Personalizados", productCount: 0 },
         ]);
       }
     };
@@ -62,8 +72,8 @@ const Products = () => {
 
     try {
       const filters: ProductFilters = {
-        sortBy: "createdAt",
-        sortOrder: "desc",
+        sortBy: sortBy as any,
+        sortOrder: sortOrder,
         isActive: true, // Apenas ativos
         inStock: true, // Apenas em estoque
       };
@@ -93,7 +103,7 @@ const Products = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, selectedCategory, currentPage]);
+  }, [searchTerm, selectedCategory, currentPage, sortBy, sortOrder]);
 
   useEffect(() => {
     loadProducts();
@@ -122,20 +132,12 @@ const Products = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Memoized filtered products
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesSearch =
-        !searchTerm ||
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesCategory =
-        selectedCategory === "todos" || product.category === selectedCategory;
-
-      return matchesSearch && matchesCategory;
-    });
-  }, [products, searchTerm, selectedCategory]);
+  const handleSortChange = (value: string) => {
+    const [field, order] = value.split("-");
+    setSortBy(field);
+    setSortOrder(order as "asc" | "desc");
+    setCurrentPage(1);
+  };
 
   return (
     <div className="min-h-screen py-12">
@@ -144,9 +146,9 @@ const Products = () => {
           Nossos Produtos
         </h1>
 
-        {/* Search Bar */}
-        <div className="max-w-md mx-auto mb-8">
-          <div className="relative">
+        {/* Search & Sort Bar */}
+        <div className="flex flex-col md:flex-row gap-4 max-w-4xl mx-auto mb-8">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
@@ -155,6 +157,25 @@ const Products = () => {
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
+          </div>
+          
+          <div className="w-full md:w-56">
+            <Select 
+              value={`${sortBy}-${sortOrder}`} 
+              onValueChange={handleSortChange}
+            >
+              <SelectTrigger className="w-full">
+                <div className="flex items-center gap-2">
+                  <SelectValue placeholder="Ordenar por" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="createdAt-desc">Mais recentes</SelectItem>
+                <SelectItem value="price-asc">Menor Preço</SelectItem>
+                <SelectItem value="price-desc">Maior Preço</SelectItem>
+                <SelectItem value="name-asc">Nome (A-Z)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -204,9 +225,7 @@ const Products = () => {
                     <ProductCard
                       key={product.id}
                       {...product}
-                      category={
-                        product.category ? String(product.category) : undefined
-                      }
+                      category={String(product.category || "")}
                     />
                   ))}
                 </div>

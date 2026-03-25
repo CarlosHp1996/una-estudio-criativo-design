@@ -221,7 +221,7 @@ const ProductDetail = () => {
             </div>
 
             <Button onClick={handleAddToCart} size="lg" className="w-full">
-              Adicionar ao Carrinho
+              COMPRAR
             </Button>
 
             <div className="mt-8 p-6 bg-muted rounded-lg">
