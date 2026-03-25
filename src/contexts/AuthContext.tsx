@@ -299,9 +299,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         payload: { user: updatedUser },
       });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Profile update failed";
-      dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      // Don't call AUTH_FAILURE here as it clears the session
+      console.error("Profile update error:", error);
       handleError(error);
       throw error;
     } finally {

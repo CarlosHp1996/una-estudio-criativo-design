@@ -419,12 +419,14 @@ export class AuthService {
     }
   }
 
-  // Update user profile (if endpoint exists)
+  // Update user profile
   static async updateProfile(data: UpdateProfileRequest): Promise<User> {
-    const response = await apiUtils.put<User>("/Auth/profile", data);
+    const response = await apiUtils.put<User>("/Auth/update", data);
 
     // Update stored user data
-    localStorage.setItem("una_user", JSON.stringify(response));
+    if (response) {
+      localStorage.setItem("una_user", JSON.stringify(response));
+    }
 
     return response;
   }

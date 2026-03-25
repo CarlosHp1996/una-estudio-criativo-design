@@ -106,8 +106,35 @@ export function ProfileForm() {
         });
       }
 
+      // Map state codes to EnumState numbers
+      const stateMapping: Record<string, number> = {
+        AC: 0, AL: 1, AP: 2, AM: 3, BA: 4, CE: 5, DF: 6, ES: 7, GO: 8, 
+        MA: 9, MT: 10, MS: 11, MG: 12, PA: 13, PB: 14, PR: 15, PE: 16, 
+        PI: 17, RJ: 18, RN: 19, RS: 20, RO: 21, RR: 22, SC: 23, SP: 24, 
+        SE: 25, TO: 26
+      };
+
+      const stateValue = data.state ? stateMapping[data.state.toUpperCase()] ?? 24 : 24; // Default to SP (24)
+
+      // Format data for backend UpdateUserRequest
+      const updateData = {
+        id: user?.id,
+        name: data.name,
+        email: data.email,
+        phoneNumber: data.phone,
+        bio: data.bio,
+        addresses: data.address ? [{
+          id: user?.addresses?.[0]?.id, // Keep existing address ID if available
+          street: data.address,
+          city: data.city || "",
+          state: stateValue,
+          zipCode: data.zipCode || "",
+          mainAddress: true
+        }] : []
+      };
+
       // Atualizar perfil
-      await updateProfile(data);
+      await updateProfile(updateData as any);
 
       toast({
         title: "Perfil atualizado!",

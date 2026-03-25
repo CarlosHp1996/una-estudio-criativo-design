@@ -15,6 +15,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Suspense, lazy } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import ScrollToTop from "@/components/ScrollToTop";
 
 // Lazy load pages for better performance
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
@@ -104,6 +105,7 @@ const App = () => (
                 <Sonner />
                 <NotificationContainer />
                 <BrowserRouter>
+                  <ScrollToTop />
                   <Suspense fallback={<LoadingFallback />}>
                     <Routes>
                       {/* Guest-only Routes (redirect if authenticated) */}
@@ -159,10 +161,6 @@ const App = () => (
                         />
                         <Route path="/sobre" element={<About />} />
                         <Route path="/contato" element={<Contact />} />
-                        <Route
-                          path="/rastreamento"
-                          element={<TrackingPage />}
-                        />
                         <Route path="*" element={<NotFound />} />
                       </Route>
 
@@ -212,6 +210,7 @@ const App = () => (
                           }
                         />
                         <Route path="seguranca" element={<AccountSettings />} />
+                        <Route path="rastreamento" element={<TrackingPage />} />
                         <Route
                           path="configuracoes"
                           element={

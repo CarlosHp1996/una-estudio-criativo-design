@@ -8,6 +8,7 @@ import {
   Bell,
   Shield,
   Home,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,6 +57,12 @@ const navigationItems = [
     description: "Senha e privacidade",
   },
   {
+    title: "Rastreamento",
+    href: "/dashboard/rastreamento",
+    icon: Truck,
+    description: "Acompanhe seus pedidos",
+  },
+  {
     title: "Configurações",
     href: "/dashboard/configuracoes",
     icon: Settings,
@@ -73,11 +80,11 @@ export function DashboardNavigation() {
       <div className="p-3 border-b border-gray-100 mb-4">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-medium">
-            {user?.name?.charAt(0).toUpperCase() || "U"}
+            {user?.userName?.charAt(0).toUpperCase() || "U"}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-900">
-              {user?.name || "Usuário"}
+              {user?.userName || "Usuário"}
             </p>
             <p className="text-xs text-gray-500">{user?.email}</p>
           </div>

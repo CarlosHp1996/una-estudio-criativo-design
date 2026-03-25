@@ -5,8 +5,30 @@ export interface User {
   email: string;
   roles: string[];
   profilePicture?: string;
+  phone?: string;
+  cpf?: string;
+  gender?: number; // EnumGender
+  bio?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  addresses?: AddressDto[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AddressDto {
+  id?: string;
+  street: string;
+  completName?: string;
+  city: string;
+  state: number; // EnumState
+  zipCode: string;
+  neighborhood?: string;
+  number?: string;
+  complement?: string;
+  mainAddress: boolean;
 }
 
 // Authentication types
@@ -339,9 +361,15 @@ export interface Tracking {
 
 // Profile management types
 export interface UpdateProfileRequest {
+  id?: string;
+  name?: string;
   email?: string;
-  userName?: string;
+  phoneNumber?: string;
   cpf?: string;
+  gender?: number;
+  addresses?: AddressDto[];
+  password?: string;
+  isPasswordRecovery?: boolean;
 }
 
 export interface ChangePasswordRequest {
