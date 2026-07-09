@@ -158,11 +158,16 @@ export class ProductService {
     return await this.getProducts(page, pageSize, { category });
   }
 
-  // Get categories - placeholder (backend doesn't have this endpoint yet)
+  // Categorias sao um enum fixo no backend (EnumCategory: Canecas/Pratos/Placas/Personalizados).
+  // Nao ha endpoint dedicado; derivamos a lista do proprio enum para popular filtros/dropdowns.
   static async getCategories(): Promise<Category[]> {
-    // TODO: Implement backend endpoint /Product/categories
-    // For now, return empty array - categories will be extracted from products
-    return [];
+    return Object.entries(EnumCategory)
+      .filter(([, value]) => typeof value === "number")
+      .map(([name, value]) => ({
+        id: String(value),
+        name,
+        productCount: 0,
+      }));
   }
 
   // Get recommendations for a product
