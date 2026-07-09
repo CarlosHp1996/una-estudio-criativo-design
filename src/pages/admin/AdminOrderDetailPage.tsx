@@ -49,12 +49,8 @@ export function AdminOrderDetailPage() {
 
     try {
       setLoading(true);
-      // Assuming the admin service has a method to get order by ID
-      // For now, we'll use the getAllOrders and filter
-      const response = await AdminOrderService.getAllOrders(1, 1, {
-        search: orderId,
-      });
-      const foundOrder = response.items.find((o) => o.id === orderId);
+      // Rota real: GET /orders/get/{id} via AdminOrderService.getOrderById
+      const foundOrder = await AdminOrderService.getOrderById(orderId);
 
       if (foundOrder) {
         setOrder(foundOrder);

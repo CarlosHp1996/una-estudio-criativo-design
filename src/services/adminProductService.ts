@@ -1,16 +1,26 @@
 import { httpClient, API_BASE_URL } from "../lib/httpClient";
-import {
-  Product,
-  CreateProductRequest,
-  UpdateProductRequest,
-  ProductsResponse,
-  ApiResponse,
-  Category,
-} from "../types/api";
+import { Product, ProductsResponse, ApiResponse } from "../types/api";
 
+/**
+ * AdminProductService
+ *
+ * Rotas REAIS do backend (ProductController — prefixos "api/Product" e "api/products"):
+ *   GET    /Product/get          -> lista paginada (GetProductsRequestFilter)
+ *   GET    /Product/get/{id}     -> produto por id (tambem aceita /products/{id})
+ *   POST   /Product/create       -> cria produto ([FromForm], multipart)
+ *   PUT    /Product/update/{id}  -> atualiza produto ([FromForm], multipart)
+ *   DELETE /Product/delete       -> remove um ou mais produtos ([FromBody] List<Guid>)
+ *
+ * NAO existem no backend: bulk update, upload de imagens isolado e busca
+ * avancada. Essas operacoes foram removidas deste service (nao havia consumidor).
+ * Criacao/atualizacao usam `fetch` porque enviam FormData multipart, mas sempre
+ * apontando para a rota real via API_BASE_URL.
+ */
 export class AdminProductService {
   /**
-   * Get all products with admin pagination and filters
+   * Lista produtos com paginacao/filtros.
+   * Rota real: GET /Product/get. Retorna o envelope completo — as paginas admin
+   * consomem `response.value.products` e `response.value.pagination`.
    */
   static async getAllProducts(
     page: number = 1,
@@ -22,13 +32,12 @@ export class AdminProductService {
       maxPrice?: number;
       inStock?: boolean;
       stockQuantity?: number;
-    },
+    }
   ): Promise<ProductsResponse> {
     const queryParams = new URLSearchParams();
     queryParams.append("Page", page.toString());
     queryParams.append("PageSize", pageSize.toString());
 
-    // Adicionar filtros conforme backend
     if (filters?.inStock === true) {
       queryParams.append("StockQuantity", "1");
     } else if (filters?.stockQuantity !== undefined) {
@@ -48,16 +57,17 @@ export class AdminProductService {
     }
 
     const response = await httpClient.get<ProductsResponse>(
-      `/Product/get?${queryParams.toString()}`,
+      `/Product/get?${queryParams.toString()}`
     );
     return response.data;
   }
 
   /**
-   * Create a new product (admin only)
+   * Cria um produto (admin).
+   * Rota real: POST /Product/create ([FromForm] — precisa de multipart/FormData,
+   * por isso usamos `fetch` em vez do httpClient).
    */
-  static async createProduct(formData: FormData): Promise<any> {
-    // Buscar token do localStorage (ajuste conforme seu fluxo de auth)
+  static async createProduct(formData: FormData): Promise<unknown> {
     const token = localStorage.getItem("una_token");
     const response = await fetch(`${API_BASE_URL}/Product/create`, {
       method: "POST",
@@ -74,20 +84,21 @@ export class AdminProductService {
   }
 
   /**
-   * Update an existing product (admin only)
+   * Atualiza um produto (admin).
+   * Rota real: PUT /Product/update/{id} ([FromForm] — multipart/FormData).
    */
-  static async updateProduct(id: string, formData: FormData): Promise<any> {
+  static async updateProduct(
+    id: string,
+    formData: FormData
+  ): Promise<unknown> {
     const token = localStorage.getItem("una_token");
-    const response = await fetch(
-      `${API_BASE_URL}/Product/update/${id}`,
-      {
-        method: "PUT",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
+    const response = await fetch(`${API_BASE_URL}/Product/update/${id}`, {
+      method: "PUT",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    );
+      body: formData,
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error?.message || "Erro ao atualizar produto");
@@ -96,9 +107,13 @@ export class AdminProductService {
   }
 
   /**
-   * Update only product status (active/inactive)
+   * Ativa/desativa um produto.
+   * Rota real: PUT /Product/update/{id} enviando apenas IsActive via FormData.
    */
-  static async updateProductStatus(id: string, isActive: boolean): Promise<any> {
+  static async updateProductStatus(
+    id: string,
+    isActive: boolean
+  ): Promise<unknown> {
     const formData = new FormData();
     formData.append("IsActive", isActive.toString());
 
@@ -111,22 +126,20 @@ export class AdminProductService {
   }
 
   /**
-   * Delete a product (admin only)
+   * Remove um produto (admin).
+   * Rota real: DELETE /Product/delete ([FromBody] List<Guid>).
    */
-  static async deleteProduct(id: string): Promise<any> {
+  static async deleteProduct(id: string): Promise<unknown> {
     const token = localStorage.getItem("una_token");
-    const response = await fetch(
-      `${API_BASE_URL}/Product/delete`,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "text/plain",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify([id]),
+    const response = await fetch(`${API_BASE_URL}/Product/delete`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "text/plain",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    );
+      body: JSON.stringify([id]),
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error?.message || "Erro ao deletar produto");
@@ -135,49 +148,21 @@ export class AdminProductService {
   }
 
   /**
-   * Get product by ID (admin view with full details)
-   */
-  static async getProductById(id: string): Promise<Product> {
-    const response = await httpClient.get<ApiResponse<Product>>(
-      `/products/${id}`,
-    );
-    return response.data.value;
-  }
-
-  /**
-   * Get available categories
-   */
-
-  /**
-   * Bulk update products (admin only)
-   */
-  static async bulkUpdateProducts(
-    updates: { id: string; data: Partial<CreateProductRequest> }[],
-  ): Promise<Product[]> {
-    const response = await httpClient.put<ApiResponse<Product[]>>(
-      "/products/bulk",
-      { updates },
-    );
-    return response.data.value;
-  }
-
-  /**
-   * Bulk delete products (admin only)
+   * Remove varios produtos de uma vez.
+   * Rota real: DELETE /Product/delete ([FromBody] List<Guid>) — o proprio
+   * endpoint ja aceita uma lista de ids, entao nao ha rota "bulk" separada.
    */
   static async bulkDeleteProducts(productIds: string[]): Promise<void> {
     const token = localStorage.getItem("una_token");
-    const response = await fetch(
-      `${API_BASE_URL}/Product/delete`,
-      {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "text/plain",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(productIds),
+    const response = await fetch(`${API_BASE_URL}/Product/delete`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "text/plain",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    );
+      body: JSON.stringify(productIds),
+    });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error?.message || "Erro ao deletar produtos");
@@ -185,65 +170,12 @@ export class AdminProductService {
   }
 
   /**
-   * Upload product images
+   * Busca um produto pelo id (visao admin).
+   * Rota real: GET /products/{id} (envelope .value = produto).
    */
-  static async uploadImages(files: FileList | File[]): Promise<string[]> {
-    const formData = new FormData();
-
-    Array.from(files).forEach((file, index) => {
-      formData.append(`images`, file);
-    });
-
-    const response = await httpClient.post<ApiResponse<{ urls: string[] }>>(
-      "/products/upload-images",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      },
-    );
-
-    return response.data.value.urls;
-  }
-
-  /**
-   * Search products with advanced filters
-   */
-  static async searchProducts(
-    query: string,
-    filters?: {
-      categories?: string[];
-      priceRange?: [number, number];
-      stockStatus?: "in_stock" | "low_stock" | "out_of_stock";
-      dateRange?: [string, string];
-    },
-  ): Promise<Product[]> {
-    const queryParams = new URLSearchParams();
-    queryParams.append("q", query);
-
-    if (filters?.categories?.length) {
-      filters.categories.forEach((cat) =>
-        queryParams.append("categories", cat),
-      );
-    }
-
-    if (filters?.priceRange) {
-      queryParams.append("minPrice", filters.priceRange[0].toString());
-      queryParams.append("maxPrice", filters.priceRange[1].toString());
-    }
-
-    if (filters?.stockStatus) {
-      queryParams.append("stockStatus", filters.stockStatus);
-    }
-
-    if (filters?.dateRange) {
-      queryParams.append("startDate", filters.dateRange[0]);
-      queryParams.append("endDate", filters.dateRange[1]);
-    }
-
-    const response = await httpClient.get<ApiResponse<Product[]>>(
-      `/products/search?${queryParams.toString()}`,
+  static async getProductById(id: string): Promise<Product> {
+    const response = await httpClient.get<ApiResponse<Product>>(
+      `/products/${id}`
     );
     return response.data.value;
   }

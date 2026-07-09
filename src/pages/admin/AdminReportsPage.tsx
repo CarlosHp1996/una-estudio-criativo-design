@@ -124,8 +124,9 @@ export function AdminReportsPage() {
       const mockStats: ReportStats = {
         totalOrders: orderStats.totalOrders || 0,
         totalRevenue: orderStats.totalRevenue || 0,
-        avgOrderValue: orderStats.avgOrderValue || 0,
-        totalCustomers: orderStats.totalCustomers || 0,
+        avgOrderValue: orderStats.averageOrderValue || 0,
+        // O backend nao expoe total de clientes em /orders/statistics.
+        totalCustomers: 0,
         topProducts: [
           { name: "Produto A", quantity: 120, revenue: 12000 },
           { name: "Produto B", quantity: 95, revenue: 9500 },

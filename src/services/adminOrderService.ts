@@ -1,14 +1,49 @@
 import { httpClient } from "../lib/httpClient";
-import {
-  Order,
-  OrdersResponse,
-  ApiResponse,
-  PaginationParams,
-} from "../types/api";
+import { Order, OrdersResponse, ApiResponse } from "../types/api";
+
+/**
+ * AdminOrderService
+ *
+ * Rotas REAIS do backend (OrderController — prefixos "api/Order" e "api/orders"):
+ *   GET    /orders/get            -> lista paginada (GetOrdersRequestFilter)
+ *   GET    /orders/get/{id}       -> pedido por id
+ *   PUT    /orders/update/{id}    -> atualiza Status / PaymentStatus / IsActive
+ *   DELETE /orders/delete/{id}    -> remove pedido
+ *   POST   /orders/{id}/checkout  -> checkout/pagamento
+ *   GET    /orders/statistics     -> estatisticas
+ *
+ * NAO existem no backend: busca textual de pedidos, atualizacao/exclusao em lote,
+ * exportacao, criacao manual e historico/timeline. Ver metodos marcados abaixo.
+ */
+
+// Formato real do envelope `.value` retornado por GET /orders/get.
+interface BackendOrdersValue {
+  orders: Order[];
+  pagination: {
+    currentPage?: number;
+    pageSize?: number;
+    totalItems?: number;
+    totalPages?: number;
+  };
+  addresses?: unknown;
+}
+
+// Formato real do `.value` de GET /orders/statistics (OrderStatisticsResponse).
+export interface AdminOrderStatistics {
+  totalOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+}
 
 export class AdminOrderService {
+  private static readonly BASE_PATH = "/orders";
+
   /**
-   * Get all orders with admin filters and pagination
+   * Lista pedidos com paginacao/filtros.
+   * Rota real: GET /orders/get
    */
   static async getAllOrders(
     page: number = 1,
@@ -22,117 +57,94 @@ export class AdminOrderService {
     }
   ): Promise<OrdersResponse> {
     const queryParams = new URLSearchParams();
+    queryParams.append("Page", page.toString());
+    queryParams.append("PageSize", pageSize.toString());
 
-    queryParams.append("page", page.toString());
-    queryParams.append("pageSize", pageSize.toString());
+    // NOTE: o backend NAO possui busca textual de pedidos
+    // (GetOrdersRequestFilter nao tem campo Search). `filters.search` e
+    // intencionalmente ignorado para nao enviar um parametro fantasma.
+    if (filters?.status) queryParams.append("Status", filters.status);
+    if (filters?.startDate) queryParams.append("StartDate", filters.startDate);
+    if (filters?.endDate) queryParams.append("EndDate", filters.endDate);
+    if (filters?.userId) queryParams.append("UserId", filters.userId);
 
-    if (filters?.search) queryParams.append("search", filters.search);
-    if (filters?.status) queryParams.append("status", filters.status);
-    if (filters?.startDate) queryParams.append("startDate", filters.startDate);
-    if (filters?.endDate) queryParams.append("endDate", filters.endDate);
-    if (filters?.userId) queryParams.append("userId", filters.userId);
-
-    const response = await httpClient.get<ApiResponse<OrdersResponse>>(
-      `/admin/orders?${queryParams.toString()}`
+    const response = await httpClient.get<ApiResponse<BackendOrdersValue>>(
+      `${this.BASE_PATH}/get?${queryParams.toString()}`
     );
-    return response.data.value;
+
+    const value = response.data.value;
+    // Mapeia o formato do backend ({ orders, pagination }) para o contrato
+    // OrdersResponse ({ items, currentPage, totalPages, totalItems, pageSize })
+    // esperado pelas paginas admin.
+    return {
+      items: value?.orders ?? [],
+      currentPage: value?.pagination?.currentPage ?? page,
+      totalPages: value?.pagination?.totalPages ?? 1,
+      totalItems: value?.pagination?.totalItems ?? 0,
+      pageSize: value?.pagination?.pageSize ?? pageSize,
+    };
   }
 
   /**
-   * Get order by ID (admin view with all details)
+   * Busca um pedido pelo id (visao admin).
+   * Rota real: GET /orders/get/{id}  (envelope .value = { order })
    */
   static async getOrderById(id: string): Promise<Order> {
-    const response = await httpClient.get<ApiResponse<Order>>(
-      `/admin/orders/${id}`
+    const response = await httpClient.get<ApiResponse<{ order: Order }>>(
+      `${this.BASE_PATH}/get/${id}`
     );
-    return response.data.value;
+    return response.data.value.order;
   }
 
   /**
-   * Update order status (admin only)
+   * Atualiza o status de um pedido.
+   * Rota real: PUT /orders/update/{id}  (UpdateOrderRequest aceita Status)
    */
   static async updateOrderStatus(
     orderId: string,
-    status: Order["status"],
-    notes?: string
-  ): Promise<Order> {
-    const response = await httpClient.put<ApiResponse<Order>>(
-      `/admin/orders/${orderId}/status`,
-      {
-        status,
-        notes,
-      }
+    status: Order["status"]
+  ): Promise<void> {
+    await httpClient.put<ApiResponse<unknown>>(
+      `${this.BASE_PATH}/update/${orderId}`,
+      { status }
     );
-    return response.data.value;
   }
 
   /**
-   * Cancel order (admin only)
-   */
-  static async cancelOrder(orderId: string, reason?: string): Promise<Order> {
-    const response = await httpClient.put<ApiResponse<Order>>(
-      `/admin/orders/${orderId}/cancel`,
-      {
-        reason,
-      }
-    );
-    return response.data.value;
-  }
-
-  /**
-   * Bulk update order statuses (admin only)
+   * Atualiza o status de varios pedidos.
+   * O backend NAO tem endpoint em lote — reaproveitamos a rota real de update
+   * (PUT /orders/update/{id}) aplicando o status pedido a pedido.
    */
   static async bulkUpdateOrderStatus(
     orderIds: string[],
-    status: Order["status"],
-    notes?: string
-  ): Promise<Order[]> {
-    const response = await httpClient.put<ApiResponse<Order[]>>(
-      "/admin/orders/bulk-status",
-      {
-        orderIds,
-        status,
-        notes,
-      }
-    );
-    return response.data.value;
+    status: Order["status"]
+  ): Promise<void> {
+    await Promise.all(orderIds.map((id) => this.updateOrderStatus(id, status)));
   }
 
   /**
-   * Get order statistics for admin dashboard
+   * Estatisticas de pedidos para o dashboard admin.
+   * Rota real: GET /orders/statistics
+   * (nao aceita intervalo de datas — parametros mantidos apenas para
+   * compatibilidade de chamada e sao ignorados).
    */
   static async getOrderStatistics(
     startDate?: string,
     endDate?: string
-  ): Promise<{
-    totalOrders: number;
-    totalRevenue: number;
-    avgOrderValue: number;
-    totalCustomers: number;
-    pendingOrders: number;
-    processingOrders: number;
-    shippedOrders: number;
-    deliveredOrders: number;
-    cancelledOrders: number;
-    revenueByPeriod: Array<{ date: string; revenue: number; orders: number }>;
-  }> {
-    const queryParams = new URLSearchParams();
-
-    if (startDate) {
-      queryParams.append("startDate", startDate);
-    }
-    if (endDate) {
-      queryParams.append("endDate", endDate);
-    }
-
-    const response = await httpClient.get<ApiResponse<any>>(
-      `/admin/orders/statistics?${queryParams.toString()}`
+  ): Promise<AdminOrderStatistics> {
+    void startDate;
+    void endDate;
+    const response = await httpClient.get<ApiResponse<AdminOrderStatistics>>(
+      `${this.BASE_PATH}/statistics`
     );
     return response.data.value;
   }
 
   /**
-   * Export orders to CSV/Excel (admin only)
+   * Exportacao de pedidos (CSV/Excel).
+   * TODO backend: endpoint inexistente — nao ha rota de exportacao de pedidos.
+   * Mantido com a assinatura original para nao quebrar chamadas existentes;
+   * a pagina que consome trata o erro via toast.
    */
   static async exportOrders(
     format: "csv" | "excel" = "csv",
@@ -142,110 +154,8 @@ export class AdminOrderService {
       endDate?: string;
     }
   ): Promise<Blob> {
-    const queryParams = new URLSearchParams();
-    queryParams.append("format", format);
-
-    if (filters?.status) queryParams.append("status", filters.status);
-    if (filters?.startDate) queryParams.append("startDate", filters.startDate);
-    if (filters?.endDate) queryParams.append("endDate", filters.endDate);
-
-    const response = await httpClient.get(
-      `/admin/orders/export?${queryParams.toString()}`,
-      {
-        responseType: "blob",
-      }
-    );
-
-    return response.data;
-  }
-
-  /**
-   * Create manual order (admin only)
-   */
-  static async createManualOrder(orderData: {
-    userId?: string;
-    customerEmail: string;
-    customerName: string;
-    items: Array<{
-      productId: string;
-      quantity: number;
-      unitPrice: number;
-    }>;
-    shippingAddress: {
-      street: string;
-      city: string;
-      state: string;
-      zipCode: string;
-      country: string;
-    };
-    notes?: string;
-  }): Promise<Order> {
-    const response = await httpClient.post<ApiResponse<Order>>(
-      "/admin/orders",
-      orderData
-    );
-    return response.data.value;
-  }
-
-  /**
-   * Search orders with advanced criteria
-   */
-  static async searchOrders(
-    query: string,
-    filters?: {
-      orderNumber?: string;
-      customerEmail?: string;
-      productId?: string;
-      dateRange?: [string, string];
-      priceRange?: [number, number];
-      status?: string[];
-    }
-  ): Promise<Order[]> {
-    const queryParams = new URLSearchParams();
-    queryParams.append("q", query);
-
-    if (filters?.orderNumber)
-      queryParams.append("orderNumber", filters.orderNumber);
-    if (filters?.customerEmail)
-      queryParams.append("customerEmail", filters.customerEmail);
-    if (filters?.productId) queryParams.append("productId", filters.productId);
-
-    if (filters?.dateRange) {
-      queryParams.append("startDate", filters.dateRange[0]);
-      queryParams.append("endDate", filters.dateRange[1]);
-    }
-
-    if (filters?.priceRange) {
-      queryParams.append("minAmount", filters.priceRange[0].toString());
-      queryParams.append("maxAmount", filters.priceRange[1].toString());
-    }
-
-    if (filters?.status?.length) {
-      filters.status.forEach((status) => queryParams.append("status", status));
-    }
-
-    const response = await httpClient.get<ApiResponse<Order[]>>(
-      `/admin/orders/search?${queryParams.toString()}`
-    );
-    return response.data.value;
-  }
-
-  /**
-   * Get order timeline/history
-   */
-  static async getOrderHistory(orderId: string): Promise<
-    Array<{
-      id: string;
-      action: string;
-      description: string;
-      performedBy: string;
-      performedAt: string;
-      metadata?: any;
-    }>
-  > {
-    const response = await httpClient.get<ApiResponse<any>>(
-      `/admin/orders/${orderId}/history`
-    );
-    return response.data.value;
+    void format;
+    void filters;
+    throw new Error("Exportacao de pedidos nao implementada no backend");
   }
 }
