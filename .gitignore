@@ -50,4 +50,5 @@ $RECYCLE.BIN/
 .DS_Store
 
 .ai
-.github
+.github/*
+!.github/workflows/
