@@ -84,7 +84,7 @@ export function useSmartMemo<T>(
     prevResult.current = result;
     prevDeps.current = deps;
     return result;
-  }, deps);
+  }, deps ?? []);
 }
 
 // Hook para async data fetching com cache e otimizações

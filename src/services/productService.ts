@@ -13,6 +13,7 @@ import type {
   UpdateProductRequest,
   Category,
 } from "@/types/api";
+import { EnumCategory } from "@/types/api";
 
 export class ProductService {
   // Mapeia produtos do backend para o formato esperado pelo frontend

@@ -3,7 +3,6 @@ import {
   Order,
   CreateOrderRequest,
   OrdersResponse,
-  PaginatedResponse,
   ApiResponse,
 } from "../types/api";
 import { parseApiError } from "../lib/errorHandling";

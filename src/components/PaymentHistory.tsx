@@ -206,12 +206,6 @@ const PaymentHistory: React.FC = () => {
               </div>
             )}
 
-            {payment.message && (
-              <div className="md:col-span-2">
-                <h3 className="font-medium text-gray-900">Observações</h3>
-                <p className="text-gray-600">{payment.message}</p>
-              </div>
-            )}
           </div>
 
           {payment.status === "pending" && (
@@ -223,7 +217,7 @@ const PaymentHistory: React.FC = () => {
             </div>
           )}
 
-          {payment.status === "rejected" && (
+          {payment.status === "failed" && (
             <div className="mt-4 pt-4 border-t">
               <p className="text-sm text-red-600">
                 ❌ Este pagamento foi rejeitado. Entre em contato com o suporte

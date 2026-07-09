@@ -79,6 +79,7 @@ const ProductCard = memo(
     const cartItem = useMemo(
       () => ({
         id,
+        productId: id,
         name,
         price,
         image: productImage,

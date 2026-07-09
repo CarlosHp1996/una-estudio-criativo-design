@@ -138,8 +138,9 @@ export function ProfileForm() {
       const stateValue = data.state ? stateMapping[data.state.toUpperCase()] ?? 24 : 24; // Default to SP (24)
 
       // Simple parsing for street and number
-      const addressParts = data.address.split(',');
-      const street = addressParts[0]?.trim() || data.address;
+      const addressStr = data.address ?? "";
+      const addressParts = addressStr.split(',');
+      const street = addressParts[0]?.trim() || addressStr;
       const number = addressParts[1]?.trim() || "S/N";
 
       // Format data for backend UpdateUserRequest

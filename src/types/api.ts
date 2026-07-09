@@ -260,10 +260,16 @@ export interface Order {
   totalAmount: number;
   items: OrderItem[];
   shippingAddress: ShippingAddress;
-  paymentStatus: "pending" | "approved" | "failed";
+  paymentStatus: "pending" | "approved" | "paid" | "failed";
   trackingCode?: string; // Optional tracking code when order is shipped
   createdAt: string;
   updatedAt?: string;
+  // Campos de detalhamento usados pelo painel admin (opcionais; podem não vir do backend)
+  subtotal?: number;
+  shippingCost?: number;
+  tax?: number;
+  paymentMethod?: string;
+  transactionId?: string;
 }
 
 export interface CreateOrderRequest {
@@ -324,7 +330,7 @@ export interface PaymentResponse {
   message: string;
   approvedAt?: string;
   errorCode?: string;
-  // AbacatePay specific fields (fluxo legado, mantido por compatibilidade com AbacatePayment.tsx orfao)
+  // AbacatePay specific fields (fluxo legado; mantidos apenas por compatibilidade de tipos)
   billingId?: string; // AbacatePay billing ID
   paymentUrl?: string; // URL for PIX/Boleto payment
   pixCode?: string; // PIX code for copying

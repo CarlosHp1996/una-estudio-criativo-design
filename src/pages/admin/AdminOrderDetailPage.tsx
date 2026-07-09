@@ -132,11 +132,11 @@ export function AdminOrderDetailPage() {
     return statusMap[status] || status;
   };
 
-  const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(value);
+    }).format(value ?? 0);
   };
 
   if (loading) {
@@ -468,9 +468,10 @@ export function AdminOrderDetailPage() {
                   <div>
                     <p className="text-sm font-medium">Em Processamento</p>
                     <p className="text-xs text-gray-500">
-                      {order.status === "processing" ||
-                      order.status === "shipped" ||
-                      order.status === "delivered"
+                      {(order.status === "processing" ||
+                        order.status === "shipped" ||
+                        order.status === "delivered") &&
+                      order.updatedAt
                         ? new Date(order.updatedAt).toLocaleString("pt-BR")
                         : "Aguardando"}
                     </p>
@@ -488,8 +489,9 @@ export function AdminOrderDetailPage() {
                   <div>
                     <p className="text-sm font-medium">Enviado</p>
                     <p className="text-xs text-gray-500">
-                      {order.status === "shipped" ||
-                      order.status === "delivered"
+                      {(order.status === "shipped" ||
+                        order.status === "delivered") &&
+                      order.updatedAt
                         ? new Date(order.updatedAt).toLocaleString("pt-BR")
                         : "Aguardando"}
                     </p>
@@ -507,7 +509,7 @@ export function AdminOrderDetailPage() {
                   <div>
                     <p className="text-sm font-medium">Entregue</p>
                     <p className="text-xs text-gray-500">
-                      {order.status === "delivered"
+                      {order.status === "delivered" && order.updatedAt
                         ? new Date(order.updatedAt).toLocaleString("pt-BR")
                         : "Aguardando"}
                     </p>

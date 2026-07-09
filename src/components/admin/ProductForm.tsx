@@ -69,10 +69,8 @@ export function ProductForm({
         // A categoria do backend é um número (enum)
         const categoryNum = product.attributes[0].category;
         // Encontrar o nome do enum correspondente ao número
-        // EnumCategory.Teste1 = 0, Teste2 = 1, Teste3 = 2
-        if (categoryNum === EnumCategory.Teste1) categoryValue = "Teste1";
-        else if (categoryNum === EnumCategory.Teste2) categoryValue = "Teste2";
-        else if (categoryNum === EnumCategory.Teste3) categoryValue = "Teste3";
+        // EnumCategory: Canecas=0, Pratos=1, Placas=2, Personalizados=3
+        categoryValue = EnumCategory[categoryNum] ?? "";
       }
 
       setFormData((prev) => ({

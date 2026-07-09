@@ -117,11 +117,14 @@ const OrderDetail = () => {
     }
   };
 
-  const getPaymentStatusText = (status: "pending" | "approved" | "failed") => {
+  const getPaymentStatusText = (
+    status: "pending" | "approved" | "paid" | "failed"
+  ) => {
     switch (status) {
       case "pending":
         return "Pendente";
       case "approved":
+      case "paid":
         return "Aprovado";
       case "failed":
         return "Falhou";

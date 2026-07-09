@@ -10,6 +10,12 @@ export interface AppError {
   userFriendly: boolean;
 }
 
+// Shape esperado do corpo de erro retornado pela API (narrowing do `unknown` do axios)
+interface ApiErrorData {
+  message?: string;
+  errors?: Record<string, string[]>;
+}
+
 // Error message mappings for user-friendly messages
 export const errorMessages = {
   // Network errors
@@ -20,6 +26,10 @@ export const errorMessages = {
   INVALID_CREDENTIALS: "Email ou senha incorretos.",
   TOKEN_EXPIRED: "Sua sessão expirou. Faça login novamente.",
   UNAUTHORIZED: "Você não tem permissão para acessar este recurso.",
+  FORBIDDEN: "Você não tem permissão para acessar este recurso.",
+  NOT_FOUND: "Recurso não encontrado.",
+  CONFLICT: "Conflito ao processar a requisição. Tente novamente.",
+  RATE_LIMITED: "Muitas requisições. Aguarde um momento e tente novamente.",
 
   // Validation errors
   VALIDATION_ERROR:
@@ -76,11 +86,12 @@ export function parseApiError(error: AxiosError): AppError {
     };
   }
 
-  const { status, data } = error.response;
+  const { status } = error.response;
   const statusCode = status;
+  const data = error.response.data as ApiErrorData | undefined;
 
   // Try to get error message from API response
-  let message = errorMessages.UNKNOWN_ERROR;
+  let message: string = errorMessages.UNKNOWN_ERROR;
   let details: Record<string, any> = {};
 
   if (data && typeof data === "object") {
@@ -120,7 +131,9 @@ export function parseApiError(error: AxiosError): AppError {
   const errorCode =
     statusCodeToErrorCode[statusCode as keyof typeof statusCodeToErrorCode];
   if (errorCode && !data?.message) {
-    message = errorMessages[errorCode];
+    message =
+      errorMessages[errorCode as keyof typeof errorMessages] ??
+      errorMessages.UNKNOWN_ERROR;
   }
 
   return {

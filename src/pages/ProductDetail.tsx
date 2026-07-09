@@ -62,7 +62,7 @@ const ProductDetail = () => {
       id: product.id,
       name: product.name,
       price: product.price,
-      image: product.images[0] || "",
+      image: product.images?.[0] || "",
       quantity,
       productId: product.id,
     });
@@ -249,7 +249,7 @@ const ProductDetail = () => {
                 <ProductCard
                   key={p.id}
                   {...p}
-                  category={p.category ? String(p.category) : undefined}
+                  category={p.category ? String(p.category) : ""}
                 />
               ))}
             </div>

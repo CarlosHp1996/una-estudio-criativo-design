@@ -155,7 +155,9 @@ export const VirtualList = memo(
       </div>
     );
   }
-) as <T extends VirtualListItem>(props: VirtualListProps<T>) => JSX.Element;
+) as (<T extends VirtualListItem>(props: VirtualListProps<T>) => JSX.Element) & {
+  displayName?: string;
+};
 
 VirtualList.displayName = "VirtualList";
 
@@ -310,9 +312,9 @@ export const InfiniteVirtualList = memo(
       </div>
     );
   }
-) as <T extends VirtualListItem>(
+) as (<T extends VirtualListItem>(
   props: InfiniteVirtualListProps<T>
-) => JSX.Element;
+) => JSX.Element) & { displayName?: string };
 
 InfiniteVirtualList.displayName = "InfiniteVirtualList";
 
@@ -440,6 +442,8 @@ export const VirtualGrid = memo(
       </div>
     );
   }
-) as <T extends VirtualListItem>(props: VirtualGridProps<T>) => JSX.Element;
+) as (<T extends VirtualListItem>(props: VirtualGridProps<T>) => JSX.Element) & {
+  displayName?: string;
+};
 
 VirtualGrid.displayName = "VirtualGrid";

@@ -61,7 +61,7 @@ export function OrderHistory() {
     try {
       setIsLoading(true);
       const response = await OrderService.getOrders(currentPage, itemsPerPage);
-      setOrders(response.orders);
+      setOrders(response.items);
     } catch (error) {
       console.error("Error loading orders:", error);
       toast.error("Erro ao carregar pedidos");

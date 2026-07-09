@@ -442,6 +442,28 @@ export class AuthService {
     await apiUtils.post<void>("/Auth/change-password", data);
   }
 
+  // Envia e-mail de recuperação de senha (backend espera o e-mail via query string)
+  static async forgotPassword(email: string): Promise<void> {
+    await apiUtils.post<void>(
+      `/Auth/forgout-password?email=${encodeURIComponent(email)}`,
+      {}
+    );
+  }
+
+  // Redefine a senha usando o token recebido por e-mail (fluxo de recuperação).
+  // O backend trata a atualização de senha via /Auth/update quando isPasswordRecovery = true.
+  static async resetPassword(data: {
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<void> {
+    await apiUtils.put<void>("/Auth/update", {
+      password: data.newPassword,
+      isPasswordRecovery: true,
+      token: data.token,
+    });
+  }
+
   // Get fresh user profile data
   static async getProfile(id: string): Promise<User | null> {
     try {
@@ -515,8 +537,8 @@ export class AuthService {
         email: storedUser?.email || tokenClaims.email || "",
         roles: tokenClaims.roles || storedUser?.roles || ["User"],
         profilePicture: storedUser?.profilePicture || tokenClaims.profilePicture || null,
-        phone: storedUser?.phone || null,
-        cpf: storedUser?.cpf || null,
+        phone: storedUser?.phone || undefined,
+        cpf: storedUser?.cpf || undefined,
         gender: storedUser?.gender || 0,
         bio: storedUser?.bio || "",
         addresses: storedUser?.addresses || [],

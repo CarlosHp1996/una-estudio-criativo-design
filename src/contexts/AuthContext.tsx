@@ -34,6 +34,12 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileRequest) => Promise<void>;
   changePassword: (data: ChangePasswordRequest) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (data: {
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) => Promise<void>;
   refreshUser: () => Promise<void>;
   clearError: () => void;
   redirectAfterLogin: (user: User) => void;
@@ -335,6 +341,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Solicita e-mail de recuperação de senha
+  const forgotPassword = async (email: string): Promise<void> => {
+    dispatch({ type: "SET_LOADING", payload: { loading: true } });
+
+    try {
+      await AuthService.forgotPassword(email);
+      dispatch({ type: "CLEAR_ERROR" });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Falha ao enviar e-mail de recuperação";
+      dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
+      throw error;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
+    }
+  };
+
+  // Redefine a senha a partir do token de recuperação
+  const resetPassword = async (data: {
+    token: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<void> => {
+    dispatch({ type: "SET_LOADING", payload: { loading: true } });
+
+    try {
+      await AuthService.resetPassword(data);
+      dispatch({ type: "CLEAR_ERROR" });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Falha ao redefinir a senha";
+      dispatch({ type: "AUTH_FAILURE", payload: { error: errorMessage } });
+      handleError(error);
+      throw error;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { loading: false } });
+    }
+  };
+
   // Refresh user data
   const refreshUser = async (): Promise<void> => {
     if (!state.isAuthenticated) return;
@@ -408,6 +456,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     updateProfile,
     changePassword,
+    forgotPassword,
+    resetPassword,
     refreshUser,
     clearError,
     redirectAfterLogin,

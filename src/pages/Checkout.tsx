@@ -208,16 +208,11 @@ const Checkout = () => {
             <div className="space-y-3">
               {items.map((item) => (
                 <div
-                  key={`${item.id}-${item.size || "default"}`}
+                  key={item.id}
                   className="flex justify-between items-center py-2 border-b"
                 >
                   <div className="flex-1">
                     <p className="font-medium">{item.name}</p>
-                    {item.size && (
-                      <p className="text-sm text-gray-600">
-                        Tamanho: {item.size}
-                      </p>
-                    )}
                     <p className="text-sm text-gray-600">
                       Quantidade: {item.quantity}
                     </p>
