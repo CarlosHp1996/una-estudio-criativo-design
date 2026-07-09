@@ -1,59 +1,31 @@
 import { useParams, Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useCart } from "@/contexts/CartContext";
-import { toast } from "sonner";
-import { ChevronLeft, Minus, Plus, Star, Loader2 } from "lucide-react";
+import { ChevronLeft, Minus, Plus } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
-import ProductService from "@/services/productService";
-import type { Product } from "@/types/api";
+import { useProduct, useRecommendations } from "@/hooks/queries";
 import { parseApiError } from "@/lib/errorHandling";
 
 const ProductDetail = () => {
   const { id } = useParams();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const { addItem } = useCart();
 
-  useEffect(() => {
-    if (!id) return;
+  const {
+    data: product,
+    isLoading,
+    isError,
+    error: queryError,
+  } = useProduct(id);
 
-    const loadProduct = async () => {
-      setIsLoading(true);
-      setError(null);
+  // Recomendacoes/relacionados — falha aqui nao bloqueia a pagina do produto.
+  const { data: relatedProducts = [] } = useRecommendations(id, 4);
 
-      try {
-        const productData = await ProductService.getProductById(id);
-        setProduct(productData);
-
-        // Load related products (recommendations)
-        try {
-          const recommendations = await ProductService.getRecommendations(
-            id,
-            4,
-          );
-          setRelatedProducts(recommendations);
-        } catch (relatedError) {
-          console.warn("Failed to load recommendations:", relatedError);
-          setRelatedProducts([]);
-        }
-      } catch (error) {
-        console.error("Failed to load product:", error);
-        const errorMessage = parseApiError(error as any).message;
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProduct();
-  }, [id]);
+  const error = isError ? parseApiError(queryError as any).message : null;
 
   const handleAddToCart = async () => {
     if (!product) return;

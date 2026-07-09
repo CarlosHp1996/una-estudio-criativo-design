@@ -89,7 +89,22 @@ const LoadingFallback = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+// Defaults sensatos para um e-commerce:
+// - staleTime de 1min: dados de leitura (produtos/pedidos) nao precisam refetch
+//   a cada foco; reduz chamadas repetidas ao backend.
+// - gcTime de 5min: mantem o cache por um tempo apos a tela desmontar.
+// - retry 1: uma tentativa extra em falha transitoria, sem travar a UI.
+// - refetchOnWindowFocus off: evita refetch agressivo ao alternar abas.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      gcTime: 5 * 60 * 1000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <ErrorBoundary>

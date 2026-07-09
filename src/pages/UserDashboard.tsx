@@ -20,59 +20,54 @@ import {
   Calendar,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Order } from "@/types/api";
-import { OrderService } from "@/services/orderService";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
 import { TrackingWidget } from "@/components/TrackingWidget";
+import { useOrders, useOrderStatistics } from "@/hooks/queries";
 
-interface Statistics {
-  totalOrders: number;
-  pendingOrders: number;
-  completedOrders: number;
-  cancelledOrders: number;
-  totalRevenue: number;
-  averageOrderValue: number;
-}
+const EMPTY_STATISTICS = {
+  totalOrders: 0,
+  pendingOrders: 0,
+  completedOrders: 0,
+  cancelledOrders: 0,
+  totalRevenue: 0,
+  averageOrderValue: 0,
+};
 
 export function UserDashboard() {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+
+  const {
+    data: statistics = EMPTY_STATISTICS,
+    isLoading: isLoadingStats,
+    isError: isStatsError,
+    error: statsError,
+  } = useOrderStatistics();
+
+  const {
+    data: ordersResponse,
+    isLoading: isLoadingOrders,
+    isError: isOrdersError,
+    error: ordersError,
+  } = useOrders(1, 3);
+
+  const recentOrders = ordersResponse?.items ?? [];
+  const isLoading = isLoadingStats || isLoadingOrders;
+
+  // Preserva o toast de erro que existia no fluxo antigo.
+  useEffect(() => {
+    if (isStatsError) {
+      toast.error(parseApiError(statsError as any).message);
+    }
+  }, [isStatsError, statsError]);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setIsLoading(true);
-
-      const stats = await OrderService.getOrderStatistics();
-      setStatistics(stats);
-
-      const ordersResponse = await OrderService.getOrders(1, 3);
-      setRecentOrders(ordersResponse.items);
-    } catch (error: any) {
-      console.error("Failed to load dashboard data:", error);
-      const errorMessage = parseApiError(error).message;
-      toast.error(errorMessage);
-
-      setStatistics({
-        totalOrders: 0,
-        pendingOrders: 0,
-        completedOrders: 0,
-        cancelledOrders: 0,
-        totalRevenue: 0,
-        averageOrderValue: 0,
-      });
-      setRecentOrders([]);
-    } finally {
-      setIsLoading(false);
+    if (isOrdersError) {
+      toast.error(parseApiError(ordersError as any).message);
     }
-  };
+  }, [isOrdersError, ordersError]);
 
   const getStatusColor = (status: Order["status"]) => {
     switch (status) {

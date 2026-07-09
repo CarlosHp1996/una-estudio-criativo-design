@@ -1,10 +1,7 @@
-// Product Service - API Integration with Caching
+// Product Service - API Integration
+// Caching/dedup agora e responsabilidade do React Query (hooks em src/hooks/queries).
+// Este service e apenas a camada de acesso HTTP; nao mantem cache proprio.
 import { httpClient, apiUtils } from "@/lib/httpClient";
-import {
-  cachedRequest,
-  generateCacheKey,
-  CacheConfig,
-} from "@/lib/requestCache";
 import type {
   Product,
   ProductsResponse,
@@ -53,13 +50,16 @@ export class ProductService {
     return mapped;
   }
 
-  // Get all products with pagination and filters
+  // Get all products with pagination and filters.
+  // `useCache` foi mantido na assinatura por compatibilidade, mas e ignorado:
+  // cache/dedup agora e feito pelo React Query na camada de hooks.
   static async getProducts(
     page: number = 1,
     pageSize: number = 12,
     filters?: ProductFilters,
     useCache: boolean = true,
   ): Promise<ProductsResponse> {
+    void useCache;
     const params = new URLSearchParams({
       Page: page.toString(),
       PageSize: pageSize.toString(),
@@ -99,23 +99,7 @@ export class ProductService {
 
     const url = `/Product/get?${params.toString()}`;
 
-    let response: ProductsResponse;
-    if (!useCache) {
-      response = await apiUtils.get<ProductsResponse>(url);
-    } else {
-      // Generate cache key based on parameters
-      const cacheKey = generateCacheKey("products", {
-        page,
-        pageSize,
-        ...filters,
-      });
-
-      response = await cachedRequest(
-        cacheKey,
-        () => apiUtils.get<ProductsResponse>(url),
-        CacheConfig.DYNAMIC,
-      );
-    }
+    const response = await apiUtils.get<ProductsResponse>(url);
 
     // Mapear produtos para garantir compatibilidade
     if (response.value?.products) {

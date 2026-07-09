@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import ProductCard from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Search, Loader2, ChevronDown } from "lucide-react";
-import ProductService from "@/services/productService";
+import { Search, Loader2 } from "lucide-react";
+import { useProducts, useCategories } from "@/hooks/queries";
 import {
   Select,
   SelectContent,
@@ -14,13 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type {
-  Product,
-  ProductsResponse,
-  Category,
-  ProductFilters,
-} from "@/types/api";
+import type { Category, ProductFilters } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
+
+const PAGE_SIZE = 12;
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,86 +25,44 @@ const Products = () => {
   const categoryParam = searchParams.get("categoria") || "todos";
   const [selectedCategory, setSelectedCategory] = useState(categoryParam);
 
-  // API state
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [productsResponse, setProductsResponse] =
-    useState<ProductsResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const pageSize = 12;
+  const pageSize = PAGE_SIZE;
 
-  // Load categories on mount
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const categoriesData = await ProductService.getCategories();
-        setCategories([
-          { id: "todos", name: "Todos", productCount: 0 },
-          ...categoriesData,
-        ]);
-      } catch (error) {
-        console.error("Failed to load categories:", error);
-        // Use fallback categories
-        setCategories([
-          { id: "todos", name: "Todos", productCount: 0 },
-          { id: "Canecas", name: "Canecas", productCount: 0 },
-          { id: "Pratos", name: "Pratos", productCount: 0 },
-          { id: "Placas", name: "Placas", productCount: 0 },
-          { id: "Personalizados", name: "Personalizados", productCount: 0 },
-        ]);
-      }
+  // Categorias (React Query; getCategories deriva do enum, praticamente estatico)
+  const { data: categoriesData } = useCategories();
+  const categories: Category[] = [
+    { id: "todos", name: "Todos", productCount: 0 },
+    ...(categoriesData ?? []),
+  ];
+
+  // Filtros -> entram no queryKey de useProducts (cache por combinacao)
+  const filters = useMemo<ProductFilters>(() => {
+    const f: ProductFilters = {
+      sortBy: sortBy as ProductFilters["sortBy"],
+      sortOrder,
+      isActive: true, // Apenas ativos
+      inStock: true, // Apenas em estoque
     };
-
-    loadCategories();
-  }, []);
-
-  // Load products when filters change
-  const loadProducts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const filters: ProductFilters = {
-        sortBy: sortBy as any,
-        sortOrder: sortOrder,
-        isActive: true, // Apenas ativos
-        inStock: true, // Apenas em estoque
-      };
-
-      if (searchTerm.trim()) {
-        filters.search = searchTerm.trim();
-      }
-
-      if (selectedCategory && selectedCategory !== "todos") {
-        filters.category = selectedCategory;
-      }
-
-      const response = await ProductService.getProducts(
-        currentPage,
-        pageSize,
-        filters,
-        false, // useCache = false pra evitar carregar produtos antigos/deletados
-      );
-
-      setProductsResponse(response);
-      setProducts(response.value?.products || []);
-    } catch (error) {
-      console.error("Failed to load products:", error);
-      const errorMessage = parseApiError(error as any).message;
-      setError(errorMessage);
-      setProducts([]);
-    } finally {
-      setIsLoading(false);
+    if (searchTerm.trim()) {
+      f.search = searchTerm.trim();
     }
-  }, [searchTerm, selectedCategory, currentPage, sortBy, sortOrder]);
+    if (selectedCategory && selectedCategory !== "todos") {
+      f.category = selectedCategory;
+    }
+    return f;
+  }, [searchTerm, selectedCategory, sortBy, sortOrder]);
 
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+  const {
+    data: productsResponse,
+    isLoading,
+    isError,
+    error: queryError,
+  } = useProducts(currentPage, pageSize, filters);
+
+  const products = productsResponse?.value?.products ?? [];
+  const error = isError ? parseApiError(queryError as any).message : null;
 
   const handleCategoryChange = useCallback(
     (categoryId: string) => {

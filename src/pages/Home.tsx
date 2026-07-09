@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,30 +5,12 @@ import ProductCard from "@/components/ProductCard";
 import { Star } from "lucide-react";
 import heroImage from "@/assets/hero-image.jpg";
 import aboutStudio from "@/assets/about-studio.jpg";
-import ProductService from "@/services/productService";
-import type { Product } from "@/types/api";
+import { useProducts } from "@/hooks/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Home = () => {
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadFeaturedProducts = async () => {
-      try {
-        const response = await ProductService.getProducts(1, 3, { inStock: true });
-        const products = response.value?.products || [];
-        console.log("Featured products loaded:", products);
-        setFeaturedProducts(products);
-      } catch (error) {
-        console.error("Failed to load featured products:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadFeaturedProducts();
-  }, []);
+  const { data, isLoading } = useProducts(1, 3, { inStock: true });
+  const featuredProducts = data?.value?.products ?? [];
 
   return (
     <div className="min-h-screen">
