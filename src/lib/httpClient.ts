@@ -20,27 +20,33 @@ export interface ApiError {
 }
 
 // Token management utilities
+// M-2: o token vive apenas em localStorage. A auth real usa header Bearer com
+// withCredentials:false, então o cookie era redundante e ampliava a superfície de
+// ataque (CSRF/leak). Removido. `removeToken` ainda limpa o cookie legado por
+// segurança durante a migração (contas que ainda tenham o cookie antigo).
 export const tokenManager = {
   getToken: (): string | null => {
-    return (
-      localStorage.getItem("una_token") || Cookies.get("una_token") || null
-    );
+    return localStorage.getItem("una_token") || null;
   },
 
   setToken: (token: string): void => {
     localStorage.setItem("una_token", token);
-    Cookies.set("una_token", token, { expires: 7 }); // 7 days
   },
 
   removeToken: (): void => {
     localStorage.removeItem("una_token");
     localStorage.removeItem("una_user");
+    // Limpeza do cookie legado (migração) — nenhum cookie novo é criado.
     Cookies.remove("una_token");
   },
 
+  // B-1: fail-closed. Sem claim `exp` (ausente/undefined) tratamos como expirado.
   isTokenExpired: (token: string): boolean => {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
+      if (payload.exp === undefined || payload.exp === null) {
+        return true;
+      }
       const currentTime = Math.floor(Date.now() / 1000);
       return payload.exp < currentTime;
     } catch {

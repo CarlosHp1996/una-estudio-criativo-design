@@ -11,7 +11,6 @@ import type {
   RegisterRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
-  SocialUser,
 } from "@/types/api";
 import AuthService from "@/services/authService";
 import { useErrorHandler } from "@/lib/errorHandling";
@@ -29,7 +28,8 @@ interface AuthContextType {
   register: (userData: RegisterRequest) => Promise<void>;
   socialLogin: (
     provider: "google" | "facebook",
-    socialUser: SocialUser,
+    accessToken: string,
+    returnUrl?: string | null,
   ) => Promise<void>;
   logout: () => Promise<void>;
   // Retorna a resposta crua do backend (envelope Result<UpdateUserResponse>) para que
@@ -244,15 +244,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Social login function
+  // Social login function — NOVO CONTRATO (C-1): recebe apenas o accessToken do
+  // provedor (o backend valida server-side e resolve o perfil).
   const socialLogin = async (
     provider: "google" | "facebook",
-    socialUser: SocialUser,
+    accessToken: string,
+    returnUrl?: string | null,
   ): Promise<void> => {
     dispatch({ type: "AUTH_START" });
 
     try {
-      const response = await AuthService.socialLogin(provider, { socialUser });
+      const response = await AuthService.socialLogin(provider, {
+        accessToken,
+        returnUrl,
+      });
 
       if (!response.user) {
         throw new Error("No user data received from social login");

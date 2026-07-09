@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      M-1: Content Security Policy restritiva para SPA Vite.
+      Libera: Stripe.js (js.stripe.com / api.stripe.com), Google Identity
+      (accounts.google.com / apis.google.com) e Facebook SDK (connect.facebook.net /
+      *.facebook.com), além da API do backend em connect-src.
+      AJUSTE FINO ao ir para produção: substitua/adicione a origem real de VITE_API_URL
+      em connect-src (aqui deixamos localhost do dev). Validar E2E depois — CSP pode
+      precisar de ajustes conforme o comportamento real dos SDKs.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://js.stripe.com https://connect.facebook.net https://accounts.google.com https://apis.google.com; connect-src 'self' https://api.stripe.com https://*.stripe.com https://accounts.google.com https://www.googleapis.com https://graph.facebook.com https://localhost:4242 http://localhost:4242; frame-src https://js.stripe.com https://*.stripe.com https://accounts.google.com https://www.facebook.com https://web.facebook.com; base-uri 'self'; object-src 'none'"
+    />
     <title>UNA Estudio Criativo - Arte Pintada à Mão</title>
     <meta
       name="description"

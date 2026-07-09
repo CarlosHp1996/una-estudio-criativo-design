@@ -1,9 +1,14 @@
 // Debug Utility for Development
 class DebugLogger {
-  private isDebugMode = import.meta.env.VITE_DEBUG_MODE === "true";
-  private debugAPI = import.meta.env.VITE_DEBUG_API === "true";
-  private debugAuth = import.meta.env.VITE_DEBUG_AUTH === "true";
-  private consoleLogs = import.meta.env.VITE_CONSOLE_LOGS === "true";
+  // M-4: em produção o logger é NO-OP total, independentemente das flags VITE_DEBUG_*.
+  // Nunca logamos corpo de auth/pagamento em builds de produção.
+  private isProd = import.meta.env.PROD;
+  private isDebugMode =
+    !this.isProd && import.meta.env.VITE_DEBUG_MODE === "true";
+  private debugAPI = !this.isProd && import.meta.env.VITE_DEBUG_API === "true";
+  private debugAuth = !this.isProd && import.meta.env.VITE_DEBUG_AUTH === "true";
+  private consoleLogs =
+    !this.isProd && import.meta.env.VITE_CONSOLE_LOGS === "true";
 
   // General debug logging
   log(
@@ -11,6 +16,7 @@ class DebugLogger {
     data?: any,
     category: "API" | "AUTH" | "GENERAL" = "GENERAL"
   ) {
+    if (this.isProd) return; // early return em produção
     if (!this.isDebugMode) return;
 
     const timestamp = new Date().toLocaleTimeString();
@@ -94,6 +100,13 @@ class DebugLogger {
 
   // Error tracking
   error(error: Error, context?: string) {
+    // Em produção não logamos no console (pode conter dados sensíveis). O envio para
+    // um serviço de tracking (Sentry, etc.) deve ser feito de forma controlada.
+    if (this.isProd) {
+      // TODO: Send to error tracking service (Sentry, etc.)
+      return;
+    }
+
     const errorInfo = {
       message: error.message,
       stack: error.stack,
@@ -104,11 +117,6 @@ class DebugLogger {
     };
 
     console.error("🚨 Application Error:", errorInfo);
-
-    // In production, you would send this to a logging service
-    if (import.meta.env.PROD) {
-      // TODO: Send to error tracking service (Sentry, etc.)
-    }
   }
 }
 

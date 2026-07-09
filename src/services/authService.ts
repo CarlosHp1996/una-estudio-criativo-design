@@ -147,12 +147,18 @@ export class AuthService {
     return socialAuthResponse;
   }
 
-  // Social login (Google/Facebook) — o componente já traz o `socialUser` do provedor.
+  // Social login (Google/Facebook) — NOVO CONTRATO (C-1): enviamos apenas o
+  // `accessToken` (+ returnUrl opcional). O backend valida o token com o provedor
+  // server-side, resolve o perfil e devolve o JWT+user. O client NÃO consulta mais
+  // googleapis.com/graph.facebook.com nem monta objeto de perfil.
   static async socialLogin(
     provider: "google" | "facebook",
     socialData: SocialAuthRequest,
   ): Promise<SocialAuthResponse> {
     try {
+      if (!socialData?.accessToken || socialData.accessToken.trim() === "") {
+        throw new Error("Access token is empty or undefined");
+      }
       return await AuthService.authenticateSocial(provider, socialData);
     } catch (error: any) {
       console.error(`${provider} login failed:`, error);
@@ -160,94 +166,20 @@ export class AuthService {
     }
   }
 
-  // Google login with access token
-  static async googleLogin(accessToken: string): Promise<SocialAuthResponse> {
-    try {
-      if (!accessToken || accessToken.trim() === "") {
-        throw new Error("Access token is empty or undefined");
-      }
-
-      // Get user info from Google API (endpoint externo — mantém fetch direto)
-      const googleUserResponse = await fetch(
-        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-          },
-        },
-      );
-
-      if (!googleUserResponse.ok) {
-        throw new Error(
-          `Failed to fetch Google user info: ${googleUserResponse.status}`,
-        );
-      }
-
-      const googleUserData = await googleUserResponse.json();
-
-      // Structure data as expected by backend
-      const requestData = {
-        socialUser: {
-          providerId: googleUserData.id,
-          provider: "google",
-          email: googleUserData.email,
-          name: googleUserData.name,
-          picture: googleUserData.picture || null,
-        },
-        returnUrl: null,
-      };
-
-      return await AuthService.authenticateSocial("google", requestData);
-    } catch (error: any) {
-      console.error("Google login failed:", error);
-      throw new Error(error.message || "Google login failed");
-    }
+  // Google login with access token — apenas repassa o token ao backend.
+  static async googleLogin(
+    accessToken: string,
+    returnUrl?: string | null,
+  ): Promise<SocialAuthResponse> {
+    return AuthService.socialLogin("google", { accessToken, returnUrl });
   }
 
-  // Facebook login with access token
-  static async facebookLogin(accessToken: string): Promise<SocialAuthResponse> {
-    try {
-      if (!accessToken || accessToken.trim() === "") {
-        throw new Error("Access token is empty or undefined");
-      }
-
-      // Get user info from Facebook API (endpoint externo — mantém fetch direto)
-      const facebookUserResponse = await fetch(
-        `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-          },
-        },
-      );
-
-      if (!facebookUserResponse.ok) {
-        throw new Error(
-          `Failed to fetch Facebook user info: ${facebookUserResponse.status}`,
-        );
-      }
-
-      const facebookUserData = await facebookUserResponse.json();
-
-      // Structure data as expected by backend
-      const requestData = {
-        socialUser: {
-          providerId: facebookUserData.id,
-          provider: "facebook",
-          email: facebookUserData.email,
-          name: facebookUserData.name,
-          picture: facebookUserData.picture?.data?.url || null,
-        },
-        returnUrl: null,
-      };
-
-      return await AuthService.authenticateSocial("facebook", requestData);
-    } catch (error: any) {
-      console.error("Facebook login failed:", error);
-      throw new Error(error.message || "Facebook login failed");
-    }
+  // Facebook login with access token — apenas repassa o token ao backend.
+  static async facebookLogin(
+    accessToken: string,
+    returnUrl?: string | null,
+  ): Promise<SocialAuthResponse> {
+    return AuthService.socialLogin("facebook", { accessToken, returnUrl });
   }
 
   // Upload user avatar
@@ -274,6 +206,7 @@ export class AuthService {
   }
 
   // Envia e-mail de recuperação de senha (backend espera o e-mail via query string)
+  // TODO backend: aceitar email no corpo (POST body) em vez de query string.
   static async forgotPassword(email: string): Promise<void> {
     await apiUtils.post<void>(
       `/Auth/forgout-password?email=${encodeURIComponent(email)}`,

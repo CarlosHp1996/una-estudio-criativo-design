@@ -34,41 +34,15 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
           throw new Error("No access token received from Google");
         }
 
-        // Get user info from Google API first
-        const googleUserResponse = await fetch(
-          `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokenResponse.access_token}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-          },
-        );
-
-        if (!googleUserResponse.ok) {
-          throw new Error(
-            `Failed to fetch Google user info: ${googleUserResponse.status}`,
-          );
-        }
-
-        const googleUserData = await googleUserResponse.json();
-
-        // Create SocialUser object
-        const socialUser = {
-          providerId: googleUserData.id,
-          provider: "google",
-          email: googleUserData.email,
-          name: googleUserData.name,
-          picture: googleUserData.picture || null,
-        };
-
-        // Use the AuthContext socialLogin method
-        await socialLogin("google", socialUser);
+        // NOVO CONTRATO (C-1): repassamos apenas o access_token ao backend, que
+        // valida com o Google server-side e resolve o perfil. O client não consulta
+        // mais googleapis.com/oauth2/userinfo.
+        await socialLogin("google", tokenResponse.access_token);
 
         // Show success toast
         toast({
           title: "Login realizado com sucesso",
-          description: `Bem-vindo(a), ${googleUserData.name}!`,
+          description: "Bem-vindo(a) de volta!",
           variant: "default",
         });
 

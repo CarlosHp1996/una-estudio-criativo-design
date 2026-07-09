@@ -79,58 +79,41 @@ export const FacebookLoginButton: React.FC<FacebookLoginButtonProps> = ({
 
       // Login with Facebook
       window.FB.login(
-        (response: any) => {
-          if (response.authResponse) {
-            // Get user info
-            window.FB.api(
-              "/me",
-              { fields: "id,name,email,picture" },
-              async (userInfo: any) => {
-                try {
-                  // Create SocialUser object
-                  const socialUser = {
-                    providerId: userInfo.id,
-                    provider: "facebook",
-                    email: userInfo.email,
-                    name: userInfo.name,
-                    picture: userInfo.picture?.data?.url || null,
-                  };
+        async (response: any) => {
+          if (response.authResponse?.accessToken) {
+            try {
+              // NOVO CONTRATO (C-1): repassamos apenas o accessToken ao backend, que
+              // valida com o Facebook server-side e resolve o perfil. O client não
+              // consulta mais graph.facebook.com/me.
+              await socialLogin("facebook", response.authResponse.accessToken);
 
-                  // Use the AuthContext socialLogin method
-                  await socialLogin("facebook", socialUser);
+              toast({
+                title: "Login realizado com sucesso",
+                description: "Bem-vindo(a) de volta!",
+                variant: "default",
+              });
 
-                  toast({
-                    title: "Login realizado com sucesso",
-                    description: `Bem-vindo(a), ${userInfo.name}!`,
-                    variant: "default",
-                  });
-
-                  // Give time for context to update before redirecting
-                  setTimeout(() => {
-                    // Get updated user data from localStorage to check roles
-                    const userData = localStorage.getItem("una_user");
-                    if (userData) {
-                      const user = JSON.parse(userData);
-                      redirectAfterLogin(user);
-                    } else {
-                      // Fallback to home if no user data
-                      window.location.href = "/";
-                    }
-                  }, 200);
-                } catch (error: any) {
-                  console.error(
-                    "Erro no processamento do login Facebook:",
-                    error,
-                  );
-                  const errorMessage = parseApiError(error).message;
-                  toast({
-                    title: "Erro no login com Facebook",
-                    description: errorMessage,
-                    variant: "destructive",
-                  });
+              // Give time for context to update before redirecting
+              setTimeout(() => {
+                // Get updated user data from localStorage to check roles
+                const userData = localStorage.getItem("una_user");
+                if (userData) {
+                  const user = JSON.parse(userData);
+                  redirectAfterLogin(user);
+                } else {
+                  // Fallback to home if no user data
+                  window.location.href = "/";
                 }
-              },
-            );
+              }, 200);
+            } catch (error: any) {
+              console.error("Erro no processamento do login Facebook:", error);
+              const errorMessage = parseApiError(error).message;
+              toast({
+                title: "Erro no login com Facebook",
+                description: errorMessage,
+                variant: "destructive",
+              });
+            }
           } else {
             toast({
               title: "Login cancelado",

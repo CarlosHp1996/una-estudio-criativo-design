@@ -59,9 +59,12 @@ export interface SocialUser {
   picture?: string;
 }
 
+// NOVO CONTRATO (C-1): o backend valida o token do provedor server-side.
+// O frontend envia apenas o accessToken (o provider vem da rota /SocialAuth/{provider}).
+// O perfil (email/providerId/name) NÃO é mais resolvido/enviado pelo client.
 export interface SocialAuthRequest {
-  socialUser: SocialUser;
-  returnUrl?: string;
+  accessToken: string;
+  returnUrl?: string | null;
 }
 
 export interface SocialAuthResponse {

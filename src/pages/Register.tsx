@@ -315,6 +315,7 @@ export default function Register() {
                       to="/termos"
                       className="text-green-600 hover:text-green-700 underline"
                       target="_blank"
+                      rel="noopener noreferrer"
                     >
                       Termos de Uso
                     </Link>{" "}
@@ -323,6 +324,7 @@ export default function Register() {
                       to="/privacidade"
                       className="text-green-600 hover:text-green-700 underline"
                       target="_blank"
+                      rel="noopener noreferrer"
                     >
                       Política de Privacidade
                     </Link>
