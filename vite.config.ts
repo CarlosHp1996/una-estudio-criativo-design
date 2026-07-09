@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   test: {
     // Ambiente de DOM para testar código de browser (localStorage, document, etc.).
     environment: "jsdom",
@@ -61,8 +61,8 @@ export default defineConfig({
     },
     // Optimize chunk size
     chunkSizeWarningLimit: 1000,
-    // Enable source maps for debugging
-    sourcemap: true,
+    // Source maps só em desenvolvimento — evita expor o código-fonte em produção.
+    sourcemap: mode === "development",
     // Minification options
     minify: "esbuild",
     target: "es2020",
@@ -78,4 +78,4 @@ export default defineConfig({
     ],
     exclude: ["@vite/client", "@vite/env"],
   },
-});
+}));

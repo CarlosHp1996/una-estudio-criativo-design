@@ -1,5 +1,5 @@
 // Authentication Service - API Integration
-import { httpClient, apiUtils, tokenManager, API_BASE_URL } from "@/lib/httpClient";
+import { apiUtils, tokenManager } from "@/lib/httpClient";
 import type {
   LoginRequest,
   RegisterRequest,
@@ -15,23 +15,8 @@ export class AuthService {
   // Login with email/password
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/Auth/login`, // Revert to working URL
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(credentials),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      // apiUtils já injeta baseURL e devolve o corpo da resposta (envelope Result<T>).
+      const data = await apiUtils.post<any>("/Auth/login", credentials);
 
       const token = data.value?.token;
       if (!token) {
@@ -86,23 +71,8 @@ export class AuthService {
         addresses: null,
       };
 
-      const response = await fetch(`${API_BASE_URL}/Auth/create`, {
-        method: "POST",
-        headers: {
-          accept: "text/plain",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Register error:", errorData);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const responseData = await response.json();
-      const backendUser = responseData.user;
+      const responseData = await apiUtils.post<any>("/Auth/create", requestData);
+      const backendUser = responseData?.user;
 
       const user: User = {
         id: backendUser?.id || "",
@@ -125,76 +95,65 @@ export class AuthService {
     }
   }
 
-  // Social login (Google/Facebook)
+  // Núcleo compartilhado do login social: chama o backend (/SocialAuth/{provider}),
+  // extrai o token do envelope, decodifica o JWT, monta o usuário e persiste a sessão.
+  // Reutilizado por socialLogin / googleLogin / facebookLogin — elimina a duplicação.
+  private static async authenticateSocial(
+    provider: "google" | "facebook",
+    body: unknown,
+  ): Promise<SocialAuthResponse> {
+    // apiUtils injeta baseURL e devolve o corpo da resposta (SocialAuthResponse).
+    const data = await apiUtils.post<any>(`/SocialAuth/${provider}`, body);
+
+    // Extract token from SocialAuthResponse structure
+    const token = data?.JwtToken || data?.jwtToken;
+
+    if (!token) {
+      console.error(`${provider} login - No token in response:`, data);
+      throw new Error("No token received from social login");
+    }
+
+    // Decode JWT token to extract user claims and roles
+    const tokenClaims = tokenManager.decodeToken(token);
+
+    if (!tokenClaims) {
+      throw new Error(
+        "Failed to decode authentication token from social login",
+      );
+    }
+
+    // Create user object from JWT claims combined with backend User data
+    const user = {
+      id: tokenClaims.sub || data.User?.id || "",
+      userName: tokenClaims.name || data.User?.userName || "User",
+      email: tokenClaims.email || data.User?.email || "",
+      roles: tokenClaims.roles || ["User"],
+      profilePicture:
+        tokenClaims.profilePicture || data.User?.profilePicture || null,
+      createdAt: data.User?.createdAt || new Date().toISOString(),
+      updatedAt: data.User?.updatedAt || new Date().toISOString(),
+    };
+
+    const socialAuthResponse: SocialAuthResponse = {
+      jwtToken: token,
+      user: user,
+      success: true,
+    };
+
+    // Store token and user data
+    tokenManager.setToken(token);
+    localStorage.setItem("una_user", JSON.stringify(user));
+
+    return socialAuthResponse;
+  }
+
+  // Social login (Google/Facebook) — o componente já traz o `socialUser` do provedor.
   static async socialLogin(
     provider: "google" | "facebook",
     socialData: SocialAuthRequest,
   ): Promise<SocialAuthResponse> {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/SocialAuth/${provider}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(socialData),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error(`${provider} login error:`, errorData);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Extract token from SocialAuthResponse structure
-      const token = data.JwtToken || data.jwtToken;
-
-      if (!token) {
-        console.error(`${provider} login - No token in response:`, data);
-        throw new Error("No token received from social login");
-      }
-
-      // Decode JWT token to extract user claims and roles
-      const tokenClaims = tokenManager.decodeToken(token);
-
-      if (!tokenClaims) {
-        throw new Error(
-          "Failed to decode authentication token from social login",
-        );
-      }
-
-      // Create user object from JWT claims combined with backend User data
-      const user = {
-        id: tokenClaims.sub || data.User?.id || "",
-        userName: tokenClaims.name || data.User?.userName || "User",
-        email: tokenClaims.email || data.User?.email || "",
-        roles: tokenClaims.roles || ["User"],
-        profilePicture: tokenClaims.profilePicture || data.User?.profilePicture || null,
-        createdAt: data.User?.createdAt || new Date().toISOString(),
-        updatedAt: data.User?.updatedAt || new Date().toISOString(),
-      };
-
-      const socialAuthResponse: SocialAuthResponse = {
-        jwtToken: token,
-        user: user,
-        success: true,
-      };
-
-      // Store token and user data
-      if (socialAuthResponse.jwtToken) {
-        tokenManager.setToken(socialAuthResponse.jwtToken);
-        localStorage.setItem(
-          "una_user",
-          JSON.stringify(socialAuthResponse.user),
-        );
-      }
-
-      return socialAuthResponse;
+      return await AuthService.authenticateSocial(provider, socialData);
     } catch (error: any) {
       console.error(`${provider} login failed:`, error);
       throw new Error(error.message || `${provider} login failed`);
@@ -208,7 +167,7 @@ export class AuthService {
         throw new Error("Access token is empty or undefined");
       }
 
-      // Get user info from Google API
+      // Get user info from Google API (endpoint externo — mantém fetch direto)
       const googleUserResponse = await fetch(
         `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`,
         {
@@ -239,71 +198,7 @@ export class AuthService {
         returnUrl: null,
       };
 
-      // Send to backend
-      const response = await fetch(
-        `${API_BASE_URL}/SocialAuth/google`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(requestData),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Google login error:", errorData);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Extract token from SocialAuthResponse structure
-      const token = data.JwtToken || data.jwtToken;
-
-      if (!token) {
-        console.error("Google login - No token in response:", data);
-        throw new Error("No token received from Google login");
-      }
-
-      // Decode JWT token to extract user claims and roles
-      const tokenClaims = tokenManager.decodeToken(token);
-
-      if (!tokenClaims) {
-        throw new Error(
-          "Failed to decode authentication token from Google login",
-        );
-      }
-
-      // Create user object from JWT claims combined with backend User data
-      const user = {
-        id: tokenClaims.sub || data.User?.id || "",
-        userName: tokenClaims.name || data.User?.userName || "User",
-        email: tokenClaims.email || data.User?.email || "",
-        roles: tokenClaims.roles || ["User"],
-        profilePicture: tokenClaims.profilePicture || data.User?.profilePicture || null,
-        createdAt: data.User?.createdAt || new Date().toISOString(),
-        updatedAt: data.User?.updatedAt || new Date().toISOString(),
-      };
-
-      const socialAuthResponse: SocialAuthResponse = {
-        jwtToken: token,
-        user: user,
-        success: true,
-      };
-
-      // Store token and user data
-      if (socialAuthResponse.jwtToken) {
-        tokenManager.setToken(socialAuthResponse.jwtToken);
-        localStorage.setItem(
-          "una_user",
-          JSON.stringify(socialAuthResponse.user),
-        );
-      }
-
-      return socialAuthResponse;
+      return await AuthService.authenticateSocial("google", requestData);
     } catch (error: any) {
       console.error("Google login failed:", error);
       throw new Error(error.message || "Google login failed");
@@ -317,7 +212,7 @@ export class AuthService {
         throw new Error("Access token is empty or undefined");
       }
 
-      // Get user info from Facebook API
+      // Get user info from Facebook API (endpoint externo — mantém fetch direto)
       const facebookUserResponse = await fetch(
         `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`,
         {
@@ -348,71 +243,7 @@ export class AuthService {
         returnUrl: null,
       };
 
-      // Send to backend
-      const response = await fetch(
-        `${API_BASE_URL}/SocialAuth/facebook`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(requestData),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("Facebook login error:", errorData);
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Extract token from SocialAuthResponse structure
-      const token = data.JwtToken || data.jwtToken;
-
-      if (!token) {
-        console.error("Facebook login - No token in response:", data);
-        throw new Error("No token received from Facebook login");
-      }
-
-      // Decode JWT token to extract user claims and roles
-      const tokenClaims = tokenManager.decodeToken(token);
-
-      if (!tokenClaims) {
-        throw new Error(
-          "Failed to decode authentication token from Facebook login",
-        );
-      }
-
-      // Create user object from JWT claims combined with backend User data
-      const user = {
-        id: tokenClaims.sub || data.User?.id || "",
-        userName: tokenClaims.name || data.User?.userName || "User",
-        email: tokenClaims.email || data.User?.email || "",
-        roles: tokenClaims.roles || ["User"],
-        profilePicture: tokenClaims.profilePicture || data.User?.profilePicture || null,
-        createdAt: data.User?.createdAt || new Date().toISOString(),
-        updatedAt: data.User?.updatedAt || new Date().toISOString(),
-      };
-
-      const socialAuthResponse: SocialAuthResponse = {
-        jwtToken: token,
-        user: user,
-        success: true,
-      };
-
-      // Store token and user data
-      if (socialAuthResponse.jwtToken) {
-        tokenManager.setToken(socialAuthResponse.jwtToken);
-        localStorage.setItem(
-          "una_user",
-          JSON.stringify(socialAuthResponse.user),
-        );
-      }
-
-      return socialAuthResponse;
+      return await AuthService.authenticateSocial("facebook", requestData);
     } catch (error: any) {
       console.error("Facebook login failed:", error);
       throw new Error(error.message || "Facebook login failed");

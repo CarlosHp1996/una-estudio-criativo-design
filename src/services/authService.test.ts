@@ -1,9 +1,23 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AuthService } from "./authService";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// authService.login usa `fetch` (hardcoded), não o httpClient. Mockamos o fetch global.
-// Este teste cobre o parse do envelope no login: token vem de `data.value.token` e as
-// roles/claims são extraídas do JWT.
+// authService agora usa o httpClient (apiUtils), não `fetch` hardcoded.
+// Mockamos apenas o `apiUtils` do módulo, preservando o `tokenManager` real
+// (login/decode dependem de decodeToken + setToken de verdade).
+vi.mock("@/lib/httpClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/httpClient")>();
+  return {
+    ...actual,
+    apiUtils: {
+      ...actual.apiUtils,
+      post: vi.fn(),
+    },
+  };
+});
+
+import { AuthService } from "./authService";
+import { apiUtils } from "@/lib/httpClient";
+
+const mockedPost = vi.mocked(apiUtils.post);
 
 // Monta um JWT falso (só o payload importa para o decodeToken).
 function fakeJwt(payload: Record<string, unknown>): string {
@@ -23,19 +37,9 @@ describe("AuthService.login (parse do envelope)", () => {
 
   beforeEach(() => {
     localStorage.clear();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        json: async () => ({ value: { token }, hasSuccess: true }),
-      })),
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    mockedPost.mockReset();
+    // Envelope Result<T>: o token vem em data.value.token.
+    mockedPost.mockResolvedValue({ value: { token }, hasSuccess: true });
   });
 
   it("extrai o token de data.value.token e monta o AuthResponse", async () => {
@@ -44,6 +48,10 @@ describe("AuthService.login (parse do envelope)", () => {
       password: "senha123",
     });
 
+    expect(mockedPost).toHaveBeenCalledWith("/Auth/login", {
+      email: "fulano@example.com",
+      password: "senha123",
+    });
     expect(result.token).toBe(token);
     expect(result.user.id).toBe("user-42");
     expect(result.user.email).toBe("fulano@example.com");
@@ -58,15 +66,7 @@ describe("AuthService.login (parse do envelope)", () => {
   });
 
   it("lança erro quando o backend não retorna token no envelope", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        json: async () => ({ value: {}, hasSuccess: true }),
-      })),
-    );
+    mockedPost.mockResolvedValue({ value: {}, hasSuccess: true });
 
     await expect(
       AuthService.login({ email: "a@b.com", password: "x" }),
