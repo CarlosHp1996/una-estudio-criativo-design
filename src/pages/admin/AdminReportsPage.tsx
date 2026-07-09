@@ -19,15 +19,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -113,45 +106,33 @@ export function AdminReportsPage() {
           start = new Date(now.getFullYear(), now.getMonth(), 1);
       }
 
-      // Get order statistics
+      // Estatisticas REAIS: GET /orders/statistics (nao filtra por periodo no
+      // backend — os parametros de data sao ignorados; ver nota na UI).
       const orderStats = await AdminOrderService.getOrderStatistics(
         start.toISOString(),
         now.toISOString(),
       );
 
-      // TODO: Replace with real API data when backend endpoints are available
-      // Currently using placeholder data for visualization purposes
-      const mockStats: ReportStats = {
+      const realStats: ReportStats = {
+        // KPIs reais vindos do backend.
         totalOrders: orderStats.totalOrders || 0,
         totalRevenue: orderStats.totalRevenue || 0,
         avgOrderValue: orderStats.averageOrderValue || 0,
-        // O backend nao expoe total de clientes em /orders/statistics.
+        // Sem backend: o endpoint de estatisticas NAO expoe total de clientes.
         totalCustomers: 0,
-        topProducts: [
-          { name: "Produto A", quantity: 120, revenue: 12000 },
-          { name: "Produto B", quantity: 95, revenue: 9500 },
-          { name: "Produto C", quantity: 80, revenue: 8000 },
-          { name: "Produto D", quantity: 65, revenue: 6500 },
-          { name: "Produto E", quantity: 50, revenue: 5000 },
-        ],
+        // Sem backend: nao ha endpoint de produtos mais vendidos.
+        topProducts: [],
+        // Distribuicao REAL por status (a partir dos buckets de /orders/statistics).
         ordersByStatus: [
-          { status: "Entregue", count: 150 },
-          { status: "Enviado", count: 35 },
-          { status: "Processando", count: 20 },
-          { status: "Pendente", count: 15 },
-          { status: "Cancelado", count: 10 },
-        ],
-        revenueByMonth: [
-          { month: "Jan", revenue: 25000, orders: 120 },
-          { month: "Fev", revenue: 32000, orders: 150 },
-          { month: "Mar", revenue: 28000, orders: 130 },
-          { month: "Abr", revenue: 35000, orders: 165 },
-          { month: "Mai", revenue: 42000, orders: 190 },
-          { month: "Jun", revenue: 38000, orders: 175 },
-        ],
+          { status: "Pendentes", count: orderStats.pendingOrders || 0 },
+          { status: "Concluídos", count: orderStats.completedOrders || 0 },
+          { status: "Cancelados", count: orderStats.cancelledOrders || 0 },
+        ].filter((s) => s.count > 0),
+        // Sem backend: nao ha endpoint de receita por periodo/mes.
+        revenueByMonth: [],
       };
 
-      setStats(mockStats);
+      setStats(realStats);
     } catch (error: any) {
       console.error("Failed to load report data:", error);
       const errorMessage = parseApiError(error).message;
@@ -161,14 +142,11 @@ export function AdminReportsPage() {
     }
   };
 
-  const handleExportReport = async (format: "csv" | "excel" | "pdf") => {
-    try {
-      // In a real app, this would call an API endpoint
-      toast.success(`Relatório ${format.toUpperCase()} será gerado em breve`);
-    } catch (error: any) {
-      console.error("Failed to export report:", error);
-      toast.error("Erro ao exportar relatório");
-    }
+  const handleExportReport = (format: "csv" | "excel" | "pdf") => {
+    // Sem backend: nao ha endpoint de exportacao de relatorios.
+    toast.info(
+      `Exportação em ${format.toUpperCase()} ainda não disponível (backend pendente)`,
+    );
   };
 
   const formatCurrency = (value: number) => {
@@ -295,9 +273,7 @@ export function AdminReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.totalOrders || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              +12% em relação ao período anterior
-            </p>
+            <p className="text-xs text-muted-foreground">Total acumulado</p>
           </CardContent>
         </Card>
 
@@ -310,9 +286,7 @@ export function AdminReportsPage() {
             <div className="text-2xl font-bold">
               {formatCurrency(stats?.totalRevenue || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              +8% em relação ao período anterior
-            </p>
+            <p className="text-xs text-muted-foreground">Receita acumulada</p>
           </CardContent>
         </Card>
 
@@ -325,9 +299,7 @@ export function AdminReportsPage() {
             <div className="text-2xl font-bold">
               {formatCurrency(stats?.avgOrderValue || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              +3% em relação ao período anterior
-            </p>
+            <p className="text-xs text-muted-foreground">Ticket médio geral</p>
           </CardContent>
         </Card>
 
@@ -339,11 +311,9 @@ export function AdminReportsPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.totalCustomers || 0}
-            </div>
+            <div className="text-2xl font-bold text-muted-foreground">—</div>
             <p className="text-xs text-muted-foreground">
-              +15% em relação ao período anterior
+              Sem dados (backend pendente)
             </p>
           </CardContent>
         </Card>
@@ -351,49 +321,37 @@ export function AdminReportsPage() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
+        {/* Revenue Chart — sem backend de receita por periodo */}
         <Card>
           <CardHeader>
             <CardTitle>Receita por Mês</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={stats?.revenueByMonth || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip
-                  formatter={(value: number, name: string) => [
-                    name === "revenue" ? formatCurrency(value) : value,
-                    name === "revenue" ? "Receita" : "Pedidos",
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#8884d8"
-                  strokeWidth={2}
-                  name="revenue"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="orders"
-                  stroke="#82ca9d"
-                  strokeWidth={2}
-                  name="orders"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col items-center justify-center h-[300px] text-center text-muted-foreground">
+              <TrendingUp className="h-8 w-8 mb-2 opacity-50" />
+              <p className="text-sm">
+                Sem dados históricos de receita por período.
+              </p>
+              <p className="text-xs">
+                Endpoint de receita por mês ainda não disponível no backend.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Order Status Pie Chart */}
+        {/* Order Status Pie Chart — dados REAIS de /orders/statistics */}
         <Card>
           <CardHeader>
             <CardTitle>Pedidos por Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            {(stats?.ordersByStatus?.length ?? 0) === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center text-muted-foreground">
+                <ShoppingCart className="h-8 w-8 mb-2 opacity-50" />
+                <p className="text-sm">Nenhum pedido no período.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={stats?.ordersByStatus || []}
@@ -417,6 +375,7 @@ export function AdminReportsPage() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -430,53 +389,44 @@ export function AdminReportsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Produto</TableHead>
-                <TableHead className="text-center">
-                  Quantidade Vendida
-                </TableHead>
-                <TableHead className="text-right">Receita Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(stats?.topProducts || []).map((product, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell className="text-center">
-                    {product.quantity}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(product.revenue)}
-                  </TableCell>
+          {(stats?.topProducts?.length ?? 0) === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+              <Package className="h-8 w-8 mb-2 opacity-50" />
+              <p className="text-sm">
+                Sem dados de produtos mais vendidos.
+              </p>
+              <p className="text-xs">
+                Endpoint de ranking de produtos ainda não disponível no backend.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-center">
+                    Quantidade Vendida
+                  </TableHead>
+                  <TableHead className="text-right">Receita Total</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Revenue Bar Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Análise de Receita Mensal</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={stats?.revenueByMonth || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip
-                formatter={(value: number) => [
-                  formatCurrency(value),
-                  "Receita",
-                ]}
-              />
-              <Bar dataKey="revenue" fill="#8884d8" />
-            </BarChart>
-          </ResponsiveContainer>
+              </TableHeader>
+              <TableBody>
+                {(stats?.topProducts || []).map((product, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">
+                      {product.name}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {product.quantity}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(product.revenue)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

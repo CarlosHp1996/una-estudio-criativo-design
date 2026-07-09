@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,10 @@ import { Order, OrdersResponse } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import {
+  useAdminUpdateOrderStatus,
+  useBulkUpdateOrderStatus,
+} from "@/hooks/queries";
 
 export function AdminOrdersPage() {
   const navigate = useNavigate();
@@ -78,6 +83,10 @@ export function AdminOrdersPage() {
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<Order["status"] | "">("");
   const pageSize = 10;
+
+  // Mutations React Query: invalidam o cache de pedidos no onSuccess do hook.
+  const updateOrderStatus = useAdminUpdateOrderStatus();
+  const bulkUpdateOrderStatus = useBulkUpdateOrderStatus();
 
   useEffect(() => {
     loadOrders();
@@ -142,42 +151,49 @@ export function AdminOrdersPage() {
     loadOrders();
   };
 
-  const handleStatusUpdate = async (
-    orderId: string,
-    status: Order["status"]
-  ) => {
-    try {
-      await AdminOrderService.updateOrderStatus(orderId, status);
-      toast.success(
-        `Status do pedido atualizado para: ${getStatusText(status)}`
-      );
-      loadOrders();
-    } catch (error: any) {
-      console.error("Failed to update order status:", error);
-      const errorMessage = parseApiError(error).message;
-      toast.error(`Erro ao atualizar status: ${errorMessage}`);
-    }
+  const handleStatusUpdate = (orderId: string, status: Order["status"]) => {
+    updateOrderStatus.mutate(
+      { orderId, status },
+      {
+        onSuccess: () => {
+          toast.success(
+            `Status do pedido atualizado para: ${getStatusText(status)}`
+          );
+          loadOrders();
+        },
+        onError: (error: unknown) => {
+          console.error("Failed to update order status:", error);
+          const errorMessage = parseApiError(error as AxiosError).message;
+          toast.error(`Erro ao atualizar status: ${errorMessage}`);
+        },
+      }
+    );
   };
 
-  const handleBulkStatusUpdate = async () => {
+  const handleBulkStatusUpdate = () => {
     if (selectedOrders.length === 0 || !newStatus) return;
 
-    try {
-      await AdminOrderService.bulkUpdateOrderStatus(selectedOrders, newStatus);
-      toast.success(
-        `${selectedOrders.length} pedido(s) atualizado(s) para: ${getStatusText(
-          newStatus
-        )}`
-      );
-      setSelectedOrders([]);
-      setShowStatusDialog(false);
-      setNewStatus("");
-      loadOrders();
-    } catch (error: any) {
-      console.error("Failed to bulk update orders:", error);
-      const errorMessage = parseApiError(error).message;
-      toast.error(`Erro na atualização em lote: ${errorMessage}`);
-    }
+    const count = selectedOrders.length;
+    const status = newStatus;
+    bulkUpdateOrderStatus.mutate(
+      { orderIds: selectedOrders, status },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${count} pedido(s) atualizado(s) para: ${getStatusText(status)}`
+          );
+          setSelectedOrders([]);
+          setShowStatusDialog(false);
+          setNewStatus("");
+          loadOrders();
+        },
+        onError: (error: unknown) => {
+          console.error("Failed to bulk update orders:", error);
+          const errorMessage = parseApiError(error as AxiosError).message;
+          toast.error(`Erro na atualização em lote: ${errorMessage}`);
+        },
+      }
+    );
   };
 
   const handleExportOrders = async (format: "csv" | "excel") => {
@@ -511,6 +527,7 @@ export function AdminOrdersPage() {
                               onValueChange={(status: Order["status"]) =>
                                 handleStatusUpdate(order.id, status)
                               }
+                              disabled={updateOrderStatus.isPending}
                             >
                               <SelectTrigger className="w-32">
                                 <SelectValue />
@@ -613,8 +630,13 @@ export function AdminOrdersPage() {
               >
                 Cancelar
               </Button>
-              <Button onClick={handleBulkStatusUpdate} disabled={!newStatus}>
-                Atualizar Status
+              <Button
+                onClick={handleBulkStatusUpdate}
+                disabled={!newStatus || bulkUpdateOrderStatus.isPending}
+              >
+                {bulkUpdateOrderStatus.isPending
+                  ? "Atualizando..."
+                  : "Atualizar Status"}
               </Button>
             </div>
           </div>

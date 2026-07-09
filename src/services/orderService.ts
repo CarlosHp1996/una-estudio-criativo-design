@@ -7,6 +7,7 @@ import {
   ApiResponse,
 } from "../types/api";
 import { parseApiError } from "../lib/errorHandling";
+import { mapOrderDto, type BackendOrderDto } from "../lib/orderMapper";
 
 /**
  * OrderService — service de pedidos do usuario (checkout + dashboard).
@@ -25,7 +26,7 @@ import { parseApiError } from "../lib/errorHandling";
 
 // Formato real do envelope `.value` de GET /orders/get.
 interface BackendOrdersValue {
-  orders: Order[];
+  orders: BackendOrderDto[];
   pagination: {
     currentPage?: number;
     pageSize?: number;
@@ -111,7 +112,7 @@ export class OrderService {
 
       const value = response.data.value;
       return {
-        items: value?.orders ?? [],
+        items: (value?.orders ?? []).map(mapOrderDto),
         currentPage: value?.pagination?.currentPage ?? page,
         totalPages: value?.pagination?.totalPages ?? 1,
         totalItems: value?.pagination?.totalItems ?? 0,
@@ -129,10 +130,10 @@ export class OrderService {
    */
   static async getOrderById(orderId: string): Promise<Order> {
     try {
-      const response = await httpClient.get<ApiResponse<{ order: Order }>>(
-        `${this.BASE_PATH}/get/${orderId}`
-      );
-      return response.data.value.order;
+      const response = await httpClient.get<
+        ApiResponse<{ order: BackendOrderDto }>
+      >(`${this.BASE_PATH}/get/${orderId}`);
+      return mapOrderDto(response.data.value.order);
     } catch (error: any) {
       console.error("OrderService.getOrderById failed:", error);
       throw parseApiError(error);

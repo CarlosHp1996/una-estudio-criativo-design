@@ -30,13 +30,15 @@ import { AdminOrderService } from "@/services/adminOrderService";
 import { Order } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
+import { useAdminUpdateOrderStatus } from "@/hooks/queries";
 
 export function AdminOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const updateOrderStatus = useAdminUpdateOrderStatus();
+  const updatingStatus = updateOrderStatus.isPending;
 
   useEffect(() => {
     if (orderId) {
@@ -71,16 +73,16 @@ export function AdminOrderDetailPage() {
     if (!order) return;
 
     try {
-      setUpdatingStatus(true);
-      await AdminOrderService.updateOrderStatus(order.id, newStatus);
+      await updateOrderStatus.mutateAsync({
+        orderId: order.id,
+        status: newStatus,
+      });
       setOrder({ ...order, status: newStatus });
       toast.success(`Status atualizado para: ${getStatusText(newStatus)}`);
     } catch (error: any) {
       console.error("Failed to update order status:", error);
       const errorMessage = parseApiError(error).message;
       toast.error(`Erro ao atualizar status: ${errorMessage}`);
-    } finally {
-      setUpdatingStatus(false);
     }
   };
 

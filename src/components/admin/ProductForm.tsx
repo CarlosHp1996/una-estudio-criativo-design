@@ -23,10 +23,13 @@ import {
   AlertCircle,
   Check,
 } from "lucide-react";
-import { AdminProductService } from "@/services/adminProductService";
 import { Product, EnumCategory, CreateProductRequest } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
+import {
+  useCreateProduct,
+  useUpdateProduct,
+} from "@/hooks/queries";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -54,8 +57,10 @@ export function ProductForm({
     inventory: { quantity: 0, minStock: 0 },
   });
   const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const saving = createProduct.isPending || updateProduct.isPending;
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -193,7 +198,6 @@ export function ProductForm({
       return;
     }
 
-    setSaving(true);
     try {
       const data = new FormData();
       data.append("Name", formData.name);
@@ -229,11 +233,13 @@ export function ProductForm({
         data.append("Attributes[0].Category", String(categoryValue));
       }
 
+      // mutateAsync mantem o fluxo try/catch; o onSuccess do hook invalida o
+      // cache de produtos (React Query) automaticamente apos a escrita.
       if (product) {
-        await AdminProductService.updateProduct(product.id, data);
+        await updateProduct.mutateAsync({ id: product.id, formData: data });
         toast.success("Produto atualizado com sucesso");
       } else {
-        await AdminProductService.createProduct(data);
+        await createProduct.mutateAsync(data);
         toast.success("Produto criado com sucesso");
       }
       onSave();
@@ -241,8 +247,6 @@ export function ProductForm({
       console.error("Failed to save product:", error);
       const errorMessage = parseApiError(error as AxiosError).message;
       toast.error(`Erro ao salvar produto: ${errorMessage}`);
-    } finally {
-      setSaving(false);
     }
   };
 

@@ -19,6 +19,7 @@ import { OrderService } from "@/services/orderService";
 import { Order } from "@/types/api";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
+import { useCancelOrder } from "@/hooks/queries";
 import {
   CheckCircle,
   Package,
@@ -39,8 +40,9 @@ const OrderDetail = () => {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCanceling, setIsCanceling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cancelOrder = useCancelOrder();
+  const isCanceling = cancelOrder.isPending;
 
   useEffect(() => {
     if (!orderId) {
@@ -70,19 +72,16 @@ const OrderDetail = () => {
     if (!order) return;
 
     try {
-      setIsCanceling(true);
       // DELETE /orders/delete/{id}: no backend isso remove o pedido e devolve o
-      // estoque (nao retorna o pedido). Atualizamos o estado local para refletir
-      // o cancelamento; o registro nao existe mais no servidor apos esta acao.
-      await OrderService.cancelOrder(order.id);
+      // estoque (nao retorna o pedido). O hook invalida o cache de pedidos e aqui
+      // atualizamos o estado local; o registro nao existe mais no servidor.
+      await cancelOrder.mutateAsync(order.id);
       setOrder({ ...order, status: "cancelled" });
       toast.success("Pedido cancelado com sucesso!");
     } catch (error: any) {
       console.error("Failed to cancel order:", error);
       const errorMessage = parseApiError(error).message;
       toast.error(errorMessage);
-    } finally {
-      setIsCanceling(false);
     }
   };
 

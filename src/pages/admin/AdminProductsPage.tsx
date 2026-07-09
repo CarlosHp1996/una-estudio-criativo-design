@@ -62,6 +62,11 @@ import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { Switch } from "@/components/ui/switch";
+import {
+  useDeleteProduct,
+  useBulkDeleteProducts,
+  useUpdateProductStatus,
+} from "@/hooks/queries";
 
 export function AdminProductsPage() {
   const [searchParams] = useSearchParams();
@@ -78,6 +83,12 @@ export function AdminProductsPage() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const pageSize = 10;
+
+  // Mutations React Query: cada escrita invalida o cache de produtos no onSuccess
+  // do hook; aqui tratamos toast + refresh local (a lista admin usa estado local).
+  const deleteProduct = useDeleteProduct();
+  const bulkDeleteProducts = useBulkDeleteProducts();
+  const updateProductStatus = useUpdateProductStatus();
 
   useEffect(() => {
     // Verifica se há filtro de stock na URL
@@ -158,54 +169,62 @@ export function AdminProductsPage() {
     navigate("/admin/products", { replace: true });
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    try {
-      await AdminProductService.deleteProduct(productId);
-      toast.success("Produto deletado com sucesso");
-      loadProducts();
-      setSelectedProducts((prev) => prev.filter((id) => id !== productId));
-    } catch (error: unknown) {
-      console.error("Failed to delete product:", error);
-      const errorMessage = parseApiError(error as AxiosError).message;
-      toast.error(`Erro ao deletar produto: ${errorMessage}`);
-    }
+  const handleDeleteProduct = (productId: string) => {
+    deleteProduct.mutate(productId, {
+      onSuccess: () => {
+        toast.success("Produto deletado com sucesso");
+        loadProducts();
+        setSelectedProducts((prev) => prev.filter((id) => id !== productId));
+      },
+      onError: (error: unknown) => {
+        console.error("Failed to delete product:", error);
+        const errorMessage = parseApiError(error as AxiosError).message;
+        toast.error(`Erro ao deletar produto: ${errorMessage}`);
+      },
+    });
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedProducts.length === 0) return;
 
-    try {
-      await AdminProductService.bulkDeleteProducts(selectedProducts);
-      toast.success(
-        `${selectedProducts.length} produto(s) deletado(s) com sucesso`,
-      );
-      setSelectedProducts([]);
-      loadProducts();
-    } catch (error: unknown) {
-      console.error("Failed to bulk delete products:", error);
-      const errorMessage = parseApiError(error as AxiosError).message;
-      toast.error(`Erro ao deletar produtos: ${errorMessage}`);
-    }
+    const count = selectedProducts.length;
+    bulkDeleteProducts.mutate(selectedProducts, {
+      onSuccess: () => {
+        toast.success(`${count} produto(s) deletado(s) com sucesso`);
+        setSelectedProducts([]);
+        loadProducts();
+      },
+      onError: (error: unknown) => {
+        console.error("Failed to bulk delete products:", error);
+        const errorMessage = parseApiError(error as AxiosError).message;
+        toast.error(`Erro ao deletar produtos: ${errorMessage}`);
+      },
+    });
   };
 
-  const handleToggleStatus = async (productId: string, currentStatus: boolean) => {
-    try {
-      const newStatus = !currentStatus;
-      await AdminProductService.updateProductStatus(productId, newStatus);
-      
-      // Update local state
-      setProducts(prevProducts => 
-        prevProducts.map(p => 
-          p.id === productId ? { ...p, isActive: newStatus } : p
-        )
-      );
-      
-      toast.success(`Produto ${newStatus ? 'ativado' : 'desativado'} com sucesso`);
-    } catch (error: unknown) {
-      console.error("Failed to toggle status:", error);
-      const errorMessage = parseApiError(error as AxiosError).message;
-      toast.error(`Erro ao atualizar status: ${errorMessage}`);
-    }
+  const handleToggleStatus = (productId: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    updateProductStatus.mutate(
+      { id: productId, isActive: newStatus },
+      {
+        onSuccess: () => {
+          // Atualiza o estado local (a lista admin nao e RQ-driven).
+          setProducts((prevProducts) =>
+            prevProducts.map((p) =>
+              p.id === productId ? { ...p, isActive: newStatus } : p,
+            ),
+          );
+          toast.success(
+            `Produto ${newStatus ? "ativado" : "desativado"} com sucesso`,
+          );
+        },
+        onError: (error: unknown) => {
+          console.error("Failed to toggle status:", error);
+          const errorMessage = parseApiError(error as AxiosError).message;
+          toast.error(`Erro ao atualizar status: ${errorMessage}`);
+        },
+      },
+    );
   };
 
   const handleProductSaved = () => {
@@ -374,8 +393,11 @@ export function AdminProductsPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleBulkDelete}>
-                        Deletar
+                      <AlertDialogAction
+                        onClick={handleBulkDelete}
+                        disabled={bulkDeleteProducts.isPending}
+                      >
+                        {bulkDeleteProducts.isPending ? "Deletando..." : "Deletar"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -526,8 +548,11 @@ export function AdminProductsPage() {
                                     onClick={() =>
                                       handleDeleteProduct(product.id)
                                     }
+                                    disabled={deleteProduct.isPending}
                                   >
-                                    Deletar
+                                    {deleteProduct.isPending
+                                      ? "Deletando..."
+                                      : "Deletar"}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>

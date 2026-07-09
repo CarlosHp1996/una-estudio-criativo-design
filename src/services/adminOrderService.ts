@@ -1,5 +1,6 @@
 import { httpClient } from "../lib/httpClient";
 import { Order, OrdersResponse, ApiResponse } from "../types/api";
+import { mapOrderDto, type BackendOrderDto } from "../lib/orderMapper";
 
 /**
  * AdminOrderService
@@ -18,7 +19,7 @@ import { Order, OrdersResponse, ApiResponse } from "../types/api";
 
 // Formato real do envelope `.value` retornado por GET /orders/get.
 interface BackendOrdersValue {
-  orders: Order[];
+  orders: BackendOrderDto[];
   pagination: {
     currentPage?: number;
     pageSize?: number;
@@ -77,7 +78,7 @@ export class AdminOrderService {
     // OrdersResponse ({ items, currentPage, totalPages, totalItems, pageSize })
     // esperado pelas paginas admin.
     return {
-      items: value?.orders ?? [],
+      items: (value?.orders ?? []).map(mapOrderDto),
       currentPage: value?.pagination?.currentPage ?? page,
       totalPages: value?.pagination?.totalPages ?? 1,
       totalItems: value?.pagination?.totalItems ?? 0,
@@ -90,10 +91,10 @@ export class AdminOrderService {
    * Rota real: GET /orders/get/{id}  (envelope .value = { order })
    */
   static async getOrderById(id: string): Promise<Order> {
-    const response = await httpClient.get<ApiResponse<{ order: Order }>>(
-      `${this.BASE_PATH}/get/${id}`
-    );
-    return response.data.value.order;
+    const response = await httpClient.get<
+      ApiResponse<{ order: BackendOrderDto }>
+    >(`${this.BASE_PATH}/get/${id}`);
+    return mapOrderDto(response.data.value.order);
   }
 
   /**

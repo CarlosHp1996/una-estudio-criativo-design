@@ -144,8 +144,14 @@ describe("OrderService.getOrderById", () => {
     vi.clearAllMocks();
   });
 
-  it("faz GET em /orders/get/{id} e retorna value.order", async () => {
-    const order = { id: "order-1", orderNumber: 1 } as unknown as Order;
+  it("faz GET em /orders/get/{id} e retorna value.order normalizado (mapOrderDto)", async () => {
+    // Backend devolve orderNumber como int e orderDate; o mapper normaliza.
+    const order = {
+      id: "order-1",
+      orderNumber: 1,
+      status: "pending",
+      orderDate: "2026-01-01T00:00:00Z",
+    } as unknown as Order;
     mockedGet.mockResolvedValueOnce({
       data: { value: { order }, hasSuccess: true },
     });
@@ -153,7 +159,10 @@ describe("OrderService.getOrderById", () => {
     const result = await OrderService.getOrderById("order-1");
 
     expect(mockedGet).toHaveBeenCalledWith("/orders/get/order-1");
-    expect(result).toEqual(order);
+    expect(result.id).toBe("order-1");
+    expect(result.orderNumber).toBe("1");
+    expect(result.status).toBe("pending");
+    expect(result.createdAt).toBe("2026-01-01T00:00:00Z");
   });
 });
 
