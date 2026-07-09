@@ -154,18 +154,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
               payload: { user },
             });
 
-            // Validate session in background (async, don't block)
-            setTimeout(() => {
-              AuthService.validateSession()
-                .then((isValid) => {
-                  if (!isValid) {
-                    dispatch({ type: "AUTH_LOGOUT" });
-                  }
-                })
-                .catch((error) => {
-                  console.error("Session validation error:", error);
-                });
-            }, 100);
+            // Refresh user data immediately to get fresh profile from backend
+            refreshUser();
           } else {
             AuthService.clearLocalData();
           }
@@ -292,12 +282,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: "SET_LOADING", payload: { loading: true } });
 
     try {
-      const updatedUser = await AuthService.updateProfile(data);
+      const response = await AuthService.updateProfile(data);
 
-      dispatch({
-        type: "UPDATE_USER",
-        payload: { user: updatedUser },
-      });
+      if (response && response.hasSuccess && response.value?.user) {
+        const updatedBackendUser = response.value.user;
+
+        // Merge with current user to preserve roles and other session data
+        const newUser = {
+          ...state.user,
+          id: updatedBackendUser.id || state.user?.id,
+          userName: updatedBackendUser.userName || state.user?.userName,
+          email: updatedBackendUser.email || state.user?.email,
+          profilePicture:
+            updatedBackendUser.profilePicture || state.user?.profilePicture,
+          // Use whatever the backend returns, but preserve state for things like roles
+          roles: state.user?.roles || ["User"],
+        } as User;
+
+        dispatch({
+          type: "UPDATE_USER",
+          payload: { user: newUser },
+        });
+
+        // Save to localStorage
+        localStorage.setItem("una_user", JSON.stringify(newUser));
+      }
     } catch (error) {
       // Don't call AUTH_FAILURE here as it clears the session
       console.error("Profile update error:", error);
@@ -343,11 +352,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Session is valid, get current user data from token/storage
       const currentUser = AuthService.getCurrentUser();
 
-      if (currentUser) {
+      if (currentUser && currentUser.id) {
+        // Fetch fresh data from backend
+        const freshUser = await AuthService.getProfile(currentUser.id);
+        const finalUser = freshUser ? { ...currentUser, ...freshUser } : currentUser;
+
         dispatch({
           type: "UPDATE_USER",
-          payload: { user: currentUser },
+          payload: { user: finalUser },
         });
+
+        // Update localStorage with fresh data
+        localStorage.setItem("una_user", JSON.stringify(finalUser));
       } else {
         // No valid user data found
         await logout();

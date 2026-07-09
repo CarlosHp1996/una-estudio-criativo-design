@@ -9,17 +9,14 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/hooks/useAuth";
 import { OrderService } from "@/services/orderService";
 import { PaymentService } from "@/services/paymentService";
-import CreditCardForm from "@/components/forms/CreditCardForm";
-import AbacatePayment from "@/components/AbacatePayment";
-import {
-  CreateOrderRequest,
-  ShippingAddress,
-  PaymentRequest,
-  CardDetails,
-} from "@/types/api";
+import StripePaymentForm from "@/components/StripePaymentForm";
+import { CreateOrderRequest, ShippingAddress } from "@/types/api";
 import { toast } from "sonner";
 
-type CheckoutStep = "shipping" | "payment" | "processing" | "abacate";
+// Fluxo antigo (AbacatePay) tinha um step "payment" com CreditCardForm (dados de cartão
+// crus enviados ao backend) e um step "processing" separado. Hoje cartão e PIX passam
+// pelo mesmo fluxo Stripe (StripePaymentForm), então esses steps deixaram de existir.
+type CheckoutStep = "shipping" | "stripe";
 
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
@@ -28,6 +25,7 @@ const Checkout = () => {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("shipping");
   const [isLoading, setIsLoading] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<any>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: user?.userName || "",
     email: user?.email || "",
@@ -79,44 +77,32 @@ const Checkout = () => {
       const order = await OrderService.createOrder(orderRequest);
       setCreatedOrder(order);
 
-      // Move to payment step based on payment method
-      if (formData.paymentMethod === "credit") {
-        setCurrentStep("payment");
-        toast.success("Pedido criado! Agora processe o pagamento.");
-      } else if (PaymentService.isRedirectPayment(formData.paymentMethod)) {
-        // PIX/Boleto - create AbacatePay billing
-        try {
-          const billingResponse = await PaymentService.createBilling({
-            orderId: order.id,
-            amount: total,
-            paymentMethod: formData.paymentMethod as "pix" | "boleto",
-            returnUrl: `${window.location.origin}/checkout`,
-            completionUrl: `${window.location.origin}/pedidos/${order.id}`,
-          });
+      // Cartão e PIX agora seguem o mesmo fluxo: cria o PaymentIntent no Stripe via backend
+      // e usa o clientSecret retornado para confirmar o pagamento com Stripe Elements.
+      try {
+        const paymentResponse = await PaymentService.createPayment({
+          orderId: order.id,
+          amount: total,
+          paymentMethod: formData.paymentMethod === "pix" ? "pix" : "card",
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          returnUrl: `${window.location.origin}/checkout`,
+        });
 
-          // Store billing response for AbacatePayment component
-          setCreatedOrder({
-            ...order,
-            billingResponse,
-          });
-
-          setCurrentStep("abacate");
-          toast.success(
-            `${
-              formData.paymentMethod === "pix" ? "PIX" : "Boleto"
-            } gerado com sucesso!`
-          );
-        } catch (billingError: any) {
-          console.error("Billing creation error:", billingError);
-          toast.error(
-            billingError.message || "Erro ao gerar pagamento. Tente novamente."
+        if (!paymentResponse.clientSecret) {
+          throw new Error(
+            "Pagamento criado, mas sem clientSecret retornado pelo servidor."
           );
         }
-      } else {
-        // Other payment methods
-        await clearCart();
-        toast.success(`Pedido ${order.orderNumber} criado com sucesso!`);
-        navigate(`/pedidos/${order.id}`, { state: { orderCreated: true } });
+
+        setClientSecret(paymentResponse.clientSecret);
+        setCurrentStep("stripe");
+      } catch (paymentError: any) {
+        console.error("Payment creation error:", paymentError);
+        toast.error(
+          paymentError.message || "Erro ao iniciar pagamento. Tente novamente."
+        );
       }
     } catch (error: any) {
       console.error("Checkout error:", error);
@@ -128,77 +114,13 @@ const Checkout = () => {
     }
   };
 
-  const handlePaymentSubmit = async (cardDetails: CardDetails) => {
-    if (!createdOrder) {
-      toast.error("Erro: Pedido não encontrado.");
-      return;
-    }
-
-    setCurrentStep("processing");
-    setIsLoading(true);
-
-    try {
-      const paymentRequest: PaymentRequest = {
-        orderId: createdOrder.id,
-        paymentMethod: "credit_card",
-        amount: total,
-        cardDetails,
-      };
-
-      const paymentResponse = await PaymentService.processPayment(
-        paymentRequest
-      );
-
-      if (paymentResponse.status === "approved") {
-        // Payment successful
-        await clearCart();
-        toast.success(
-          `Pagamento aprovado! Pedido ${createdOrder.orderNumber} confirmado.`
-        );
-        navigate(`/pedidos/${createdOrder.id}`, {
-          state: {
-            orderCreated: true,
-            paymentApproved: true,
-            transactionId: paymentResponse.transactionId,
-          },
-        });
-      } else if (paymentResponse.status === "pending") {
-        toast.info(
-          "Pagamento em processamento. Você será notificado sobre o resultado."
-        );
-        navigate(`/pedidos/${createdOrder.id}`, {
-          state: {
-            orderCreated: true,
-            paymentPending: true,
-          },
-        });
-      } else {
-        // Payment failed
-        toast.error(`Pagamento rejeitado: ${paymentResponse.message}`);
-        setCurrentStep("payment"); // Allow retry
-      }
-    } catch (error: any) {
-      console.error("Payment error:", error);
-      toast.error(
-        error.message || "Erro ao processar pagamento. Tente novamente."
-      );
-      setCurrentStep("payment"); // Allow retry
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePaymentCancel = () => {
+  const handleStripeBack = () => {
     setCurrentStep("shipping");
     setCreatedOrder(null);
+    setClientSecret(null);
   };
 
-  const handleAbacateBack = () => {
-    setCurrentStep("shipping");
-    setCreatedOrder(null);
-  };
-
-  const handleAbacateSuccess = async (transactionId: string) => {
+  const handleStripeSuccess = async (paymentIntentId?: string) => {
     await clearCart();
     toast.success(
       `Pagamento aprovado! Pedido ${createdOrder?.orderNumber} confirmado.`
@@ -207,15 +129,16 @@ const Checkout = () => {
       state: {
         orderCreated: true,
         paymentApproved: true,
-        transactionId,
+        transactionId: paymentIntentId,
       },
     });
   };
 
-  const handleAbacateError = (error: string) => {
+  const handleStripeError = (error: string) => {
     toast.error(error);
     setCurrentStep("shipping");
     setCreatedOrder(null);
+    setClientSecret(null);
   };
 
   const handleInputChange = (
@@ -259,21 +182,15 @@ const Checkout = () => {
         {/* Payment Step */}
         <div
           className={`flex items-center ${
-            currentStep === "payment" || currentStep === "abacate"
-              ? "text-primary"
-              : "text-gray-500"
+            currentStep === "stripe" ? "text-primary" : "text-gray-500"
           }`}
         >
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              currentStep === "payment" || currentStep === "abacate"
-                ? "bg-primary text-white"
-                : currentStep === "processing"
-                ? "bg-green-500 text-white"
-                : "bg-gray-200"
+              currentStep === "stripe" ? "bg-primary text-white" : "bg-gray-200"
             }`}
           >
-            {currentStep === "processing" ? "✓" : "2"}
+            2
           </div>
           <span className="ml-2">Pagamento</span>
         </div>
@@ -440,7 +357,6 @@ const Checkout = () => {
                 >
                   <option value="credit">Cartão de Crédito</option>
                   <option value="pix">PIX</option>
-                  <option value="boleto">Boleto</option>
                 </select>
               </div>
 
@@ -473,13 +389,22 @@ const Checkout = () => {
     </div>
   );
 
-  const renderPaymentForm = () => (
-    <div className="max-w-2xl mx-auto p-4">
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Pagamento</h2>
+  const renderStripePayment = () => {
+    if (!clientSecret) {
+      return (
+        <div className="text-center">
+          <p>Erro: Dados de pagamento não encontrados.</p>
+          <Button onClick={handleStripeBack} className="mt-4">
+            Voltar
+          </Button>
+        </div>
+      );
+    }
 
+    return (
+      <div className="max-w-2xl mx-auto p-4">
         {/* Order Summary */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg max-w-md mx-auto">
           <h3 className="font-medium mb-2">
             Pedido #{createdOrder?.orderNumber}
           </h3>
@@ -489,46 +414,14 @@ const Checkout = () => {
           </div>
         </div>
 
-        <CreditCardForm
-          onSubmit={handlePaymentSubmit}
-          onCancel={handlePaymentCancel}
-          loading={isLoading}
+        <StripePaymentForm
+          clientSecret={clientSecret}
+          amount={total}
+          onBack={handleStripeBack}
+          onSuccess={handleStripeSuccess}
+          onError={handleStripeError}
         />
-      </Card>
-    </div>
-  );
-
-  const renderProcessing = () => (
-    <div className="flex flex-col items-center justify-center min-h-[400px]">
-      <Spinner className="h-12 w-12 mb-4" />
-      <h2 className="text-xl font-semibold mb-2">Processando Pagamento</h2>
-      <p className="text-gray-600 text-center">
-        Aguarde enquanto processamos seu pagamento.
-        <br />
-        Isso pode levar alguns segundos.
-      </p>
-    </div>
-  );
-
-  const renderAbacatePayment = () => {
-    if (!createdOrder?.billingResponse) {
-      return (
-        <div className="text-center">
-          <p>Erro: Dados de pagamento não encontrados.</p>
-          <Button onClick={handleAbacateBack} className="mt-4">
-            Voltar
-          </Button>
-        </div>
-      );
-    }
-
-    return (
-      <AbacatePayment
-        paymentData={createdOrder.billingResponse}
-        onBack={handleAbacateBack}
-        onSuccess={handleAbacateSuccess}
-        onError={handleAbacateError}
-      />
+      </div>
     );
   };
 
@@ -542,9 +435,7 @@ const Checkout = () => {
         {renderStepIndicator()}
 
         {currentStep === "shipping" && renderShippingForm()}
-        {currentStep === "payment" && renderPaymentForm()}
-        {currentStep === "processing" && renderProcessing()}
-        {currentStep === "abacate" && renderAbacatePayment()}
+        {currentStep === "stripe" && renderStripePayment()}
       </div>
     </div>
   );

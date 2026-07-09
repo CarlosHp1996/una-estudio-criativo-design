@@ -9,7 +9,7 @@ export class TrackingService {
     const response = await httpClient.get<ApiResponse<Tracking>>(
       `/tracking/${trackingCode}`
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -31,7 +31,7 @@ export class TrackingService {
     const response = await httpClient.get<ApiResponse<any>>(
       `/tracking?${queryParams.toString()}`
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -46,7 +46,7 @@ export class TrackingService {
       "/tracking",
       data
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -64,7 +64,7 @@ export class TrackingService {
       `/tracking/${trackingCode}/status`,
       data
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**

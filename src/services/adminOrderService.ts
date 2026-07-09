@@ -35,7 +35,7 @@ export class AdminOrderService {
     const response = await httpClient.get<ApiResponse<OrdersResponse>>(
       `/admin/orders?${queryParams.toString()}`
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -45,7 +45,7 @@ export class AdminOrderService {
     const response = await httpClient.get<ApiResponse<Order>>(
       `/admin/orders/${id}`
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -63,7 +63,7 @@ export class AdminOrderService {
         notes,
       }
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -76,7 +76,7 @@ export class AdminOrderService {
         reason,
       }
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -95,7 +95,7 @@ export class AdminOrderService {
         notes,
       }
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -128,7 +128,7 @@ export class AdminOrderService {
     const response = await httpClient.get<ApiResponse<any>>(
       `/admin/orders/statistics?${queryParams.toString()}`
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -184,7 +184,7 @@ export class AdminOrderService {
       "/admin/orders",
       orderData
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -227,7 +227,7 @@ export class AdminOrderService {
     const response = await httpClient.get<ApiResponse<Order[]>>(
       `/admin/orders/search?${queryParams.toString()}`
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -246,6 +246,6 @@ export class AdminOrderService {
     const response = await httpClient.get<ApiResponse<any>>(
       `/admin/orders/${orderId}/history`
     );
-    return response.data.data;
+    return response.data.value;
   }
 }

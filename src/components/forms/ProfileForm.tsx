@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,8 +30,8 @@ import { LoadingSpinner } from "@/components/ui/spinner";
 import { Upload, Loader2, User, Save } from "lucide-react";
 
 const profileFormSchema = z.object({
-  name: z.string().min(2, {
-    message: "Nome deve ter pelo menos 2 caracteres.",
+  userName: z.string().min(2, {
+    message: "O nome de usuário deve ter pelo menos 2 caracteres.",
   }),
   email: z.string().email({
     message: "Por favor, insira um email válido.",
@@ -50,6 +51,13 @@ const profileFormSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
+const stateMapping: Record<string, number> = {
+  AC: 0, AL: 1, AP: 2, AM: 3, BA: 4, CE: 5, DF: 6, ES: 7, GO: 8, 
+  MA: 9, MT: 10, MS: 11, MG: 12, PA: 13, PB: 14, PR: 15, PE: 16, 
+  PI: 17, RJ: 18, RN: 19, RS: 20, RO: 21, RR: 22, SC: 23, SP: 24, 
+  SE: 25, TO: 26
+};
+
 export function ProfileForm() {
   const { user, updateProfile } = useAuth();
   const { toast } = useToast();
@@ -60,7 +68,7 @@ export function ProfileForm() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: user?.name || "",
+      userName: user?.userName || "",
       email: user?.email || "",
       phone: user?.phone || "",
       address: user?.address || "",
@@ -70,6 +78,23 @@ export function ProfileForm() {
       bio: user?.bio || "",
     },
   });
+
+  // Reset form when user data changes
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        userName: user.userName || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        address: user.addresses?.[0]?.street || "",
+        city: user.addresses?.[0]?.city || "",
+        state: user.addresses?.[0]?.state !== undefined ? 
+               Object.keys(stateMapping).find(key => stateMapping[key] === user.addresses![0].state) || "SP" : "SP",
+        zipCode: user.addresses?.[0]?.zipCode || "",
+        bio: user.bio || "",
+      });
+    }
+  }, [user, form]);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -97,35 +122,40 @@ export function ProfileForm() {
     try {
       setIsLoading(true);
 
-      // Simular upload de avatar se houver
+      // real upload of avatar if present
+      let finalAvatarUrl = user?.profilePicture;
       if (avatarFile) {
-        // Aqui seria feito o upload real para a API
-        toast({
-          title: "Avatar atualizado!",
-          description: "Sua foto de perfil foi atualizada com sucesso.",
-        });
+        const uploadResponse = await AuthService.uploadAvatar(avatarFile);
+        if (uploadResponse && uploadResponse.hasSuccess) {
+          finalAvatarUrl = uploadResponse.value;
+          toast({
+            title: "Avatar atualizado!",
+            description: "Sua foto de perfil foi atualizada com sucesso.",
+          });
+        }
       }
 
-      // Map state codes to EnumState numbers
-      const stateMapping: Record<string, number> = {
-        AC: 0, AL: 1, AP: 2, AM: 3, BA: 4, CE: 5, DF: 6, ES: 7, GO: 8, 
-        MA: 9, MT: 10, MS: 11, MG: 12, PA: 13, PB: 14, PR: 15, PE: 16, 
-        PI: 17, RJ: 18, RN: 19, RS: 20, RO: 21, RR: 22, SC: 23, SP: 24, 
-        SE: 25, TO: 26
-      };
-
       const stateValue = data.state ? stateMapping[data.state.toUpperCase()] ?? 24 : 24; // Default to SP (24)
+
+      // Simple parsing for street and number
+      const addressParts = data.address.split(',');
+      const street = addressParts[0]?.trim() || data.address;
+      const number = addressParts[1]?.trim() || "S/N";
 
       // Format data for backend UpdateUserRequest
       const updateData = {
         id: user?.id,
-        name: data.name,
+        name: data.userName,
         email: data.email,
         phoneNumber: data.phone,
         bio: data.bio,
+        profilePicture: finalAvatarUrl,
         addresses: data.address ? [{
           id: user?.addresses?.[0]?.id, // Keep existing address ID if available
-          street: data.address,
+          street: street,
+          number: number,
+          neighborhood: "Centro", // Default since it's required in backend
+          completName: data.userName, // Recipient name, also required
           city: data.city || "",
           state: stateValue,
           zipCode: data.zipCode || "",
@@ -173,8 +203,8 @@ export function ProfileForm() {
             <div className="flex flex-col items-center space-y-4">
               <Avatar className="w-24 h-24">
                 <AvatarImage
-                  src={avatarPreview || user?.avatar}
-                  alt={user?.name}
+                  src={avatarPreview || user?.profilePicture}
+                  alt={user?.userName}
                 />
                 <AvatarFallback>
                   <User className="w-12 h-12" />
@@ -234,12 +264,12 @@ export function ProfileForm() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="name"
+                      name="userName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Nome completo</FormLabel>
+                          <FormLabel>Nome de usuário</FormLabel>
                           <FormControl>
-                            <Input placeholder="Seu nome completo" {...field} />
+                            <Input placeholder="Seu nome de usuário" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

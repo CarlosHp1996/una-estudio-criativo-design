@@ -20,6 +20,7 @@ import { OrderService } from "@/services/orderService";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { parseApiError } from "@/lib/errorHandling";
+import { API_BASE_URL } from "@/lib/httpClient";
 import { Product } from "@/types/api";
 
 interface OrderDto {
@@ -79,7 +80,7 @@ export function AdminDashboard() {
       // Load orders from /Order/get with Bearer token
       const token = localStorage.getItem("una_token");
       const ordersResponse = await fetch(
-        "https://localhost:4242/api/Order/get?Page=1&PageSize=100",
+        `${API_BASE_URL}/Order/get?Page=1&PageSize=100`,
         {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),

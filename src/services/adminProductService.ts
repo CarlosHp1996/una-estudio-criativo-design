@@ -1,4 +1,4 @@
-import { httpClient } from "../lib/httpClient";
+import { httpClient, API_BASE_URL } from "../lib/httpClient";
 import {
   Product,
   CreateProductRequest,
@@ -59,7 +59,7 @@ export class AdminProductService {
   static async createProduct(formData: FormData): Promise<any> {
     // Buscar token do localStorage (ajuste conforme seu fluxo de auth)
     const token = localStorage.getItem("una_token");
-    const response = await fetch("https://localhost:4242/api/Product/create", {
+    const response = await fetch(`${API_BASE_URL}/Product/create`, {
       method: "POST",
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -79,7 +79,7 @@ export class AdminProductService {
   static async updateProduct(id: string, formData: FormData): Promise<any> {
     const token = localStorage.getItem("una_token");
     const response = await fetch(
-      `https://localhost:4242/api/Product/update/${id}`,
+      `${API_BASE_URL}/Product/update/${id}`,
       {
         method: "PUT",
         headers: {
@@ -116,7 +116,7 @@ export class AdminProductService {
   static async deleteProduct(id: string): Promise<any> {
     const token = localStorage.getItem("una_token");
     const response = await fetch(
-      `https://localhost:4242/api/Product/delete`,
+      `${API_BASE_URL}/Product/delete`,
       {
         method: "DELETE",
         headers: {
@@ -141,7 +141,7 @@ export class AdminProductService {
     const response = await httpClient.get<ApiResponse<Product>>(
       `/products/${id}`,
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -158,7 +158,7 @@ export class AdminProductService {
       "/products/bulk",
       { updates },
     );
-    return response.data.data;
+    return response.data.value;
   }
 
   /**
@@ -167,7 +167,7 @@ export class AdminProductService {
   static async bulkDeleteProducts(productIds: string[]): Promise<void> {
     const token = localStorage.getItem("una_token");
     const response = await fetch(
-      `https://localhost:4242/api/Product/delete`,
+      `${API_BASE_URL}/Product/delete`,
       {
         method: "DELETE",
         headers: {
@@ -204,7 +204,7 @@ export class AdminProductService {
       },
     );
 
-    return response.data.data.urls;
+    return response.data.value.urls;
   }
 
   /**
@@ -245,6 +245,6 @@ export class AdminProductService {
     const response = await httpClient.get<ApiResponse<Product[]>>(
       `/products/search?${queryParams.toString()}`,
     );
-    return response.data.data;
+    return response.data.value;
   }
 }

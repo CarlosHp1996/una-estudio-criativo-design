@@ -5,6 +5,9 @@ import {
   PaymentResponse,
   PaymentsResponse,
   ApiResponse,
+  CreatePaymentRequest,
+  CreatePaymentResponse,
+  PaymentStatusDto,
 } from "../types/api";
 import { parseApiError } from "../lib/errorHandling";
 
@@ -14,73 +17,63 @@ import { parseApiError } from "../lib/errorHandling";
  */
 export class PaymentService {
   private static readonly BASE_PATH = "/payments";
+  // Rotas reais do PaymentController (fluxo Stripe: cartao + PIX via PaymentIntents).
+  private static readonly PAYMENT_PATH = "/payment";
 
   /**
-   * Process a payment for an order
+   * Cria um pagamento (cartao ou PIX) via Stripe PaymentIntents.
+   * POST /payment/create — retorna, entre outros campos, o clientSecret usado pelo
+   * Stripe Elements/Stripe.js no navegador para confirmar o pagamento.
    */
-  static async processPayment(
-    request: PaymentRequest
-  ): Promise<PaymentResponse> {
+  static async createPayment(
+    request: CreatePaymentRequest
+  ): Promise<CreatePaymentResponse> {
     try {
-      const response = await httpClient.post<ApiResponse<PaymentResponse>>(
-        `${this.BASE_PATH}/process`,
+      const response = await httpClient.post<ApiResponse<CreatePaymentResponse>>(
+        `${this.PAYMENT_PATH}/create`,
         request
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
-      console.error("PaymentService.processPayment failed:", error);
+      console.error("PaymentService.createPayment failed:", error);
       throw parseApiError(error);
     }
   }
 
   /**
-   * Create AbacatePay billing for PIX/Boleto payments
-   * Returns URL for redirect or payment details
+   * Consulta o status atual de um pagamento.
+   * GET /payment/{id}/status
    */
-  static async createBilling(request: {
-    orderId: string;
-    amount: number;
-    paymentMethod: "pix" | "boleto";
-    returnUrl: string;
-    completionUrl: string;
-  }): Promise<PaymentResponse> {
+  static async getPaymentStatus(paymentId: string): Promise<PaymentStatusDto> {
     try {
-      const response = await httpClient.post<ApiResponse<PaymentResponse>>(
-        `${this.BASE_PATH}/billing/create`,
-        request
+      const response = await httpClient.get<ApiResponse<PaymentStatusDto>>(
+        `${this.PAYMENT_PATH}/${paymentId}/status`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
-      console.error("PaymentService.createBilling failed:", error);
+      console.error("PaymentService.getPaymentStatus failed:", error);
       throw parseApiError(error);
     }
   }
 
   /**
-   * Get billing status from AbacatePay
+   * Cancela um pagamento pendente.
+   * POST /payment/{id}/cancel
    */
-  static async getBillingStatus(billingId: string): Promise<{
-    status: "pending" | "approved" | "failed";
-    paidAt?: string;
-    amount: number;
-    paymentMethod: string;
-  }> {
+  static async cancelPayment(
+    paymentId: string,
+    reason?: string
+  ): Promise<boolean> {
     try {
-      const response = await httpClient.get<ApiResponse<any>>(
-        `${this.BASE_PATH}/billing/${billingId}/status`
+      const response = await httpClient.post<ApiResponse<boolean>>(
+        `${this.PAYMENT_PATH}/${paymentId}/cancel`,
+        { reason }
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
-      console.error("PaymentService.getBillingStatus failed:", error);
+      console.error("PaymentService.cancelPayment failed:", error);
       throw parseApiError(error);
     }
-  }
-
-  /**
-   * Check if payment method supports redirect flow (PIX, Boleto)
-   */
-  static isRedirectPayment(paymentMethod: string): boolean {
-    return ["pix", "boleto"].includes(paymentMethod.toLowerCase());
   }
 
   /**
@@ -91,7 +84,7 @@ export class PaymentService {
       const response = await httpClient.get<ApiResponse<Payment>>(
         `${this.BASE_PATH}/${paymentId}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("PaymentService.getPaymentById failed:", error);
       throw parseApiError(error);
@@ -119,7 +112,7 @@ export class PaymentService {
       const response = await httpClient.get<ApiResponse<PaymentsResponse>>(
         `${this.BASE_PATH}?${params.toString()}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("PaymentService.getPaymentHistory failed:", error);
       throw parseApiError(error);
@@ -134,7 +127,7 @@ export class PaymentService {
       const response = await httpClient.get<ApiResponse<Payment[]>>(
         `${this.BASE_PATH}/order/${orderId}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("PaymentService.getPaymentsByOrder failed:", error);
       throw parseApiError(error);
@@ -153,24 +146,9 @@ export class PaymentService {
         `${this.BASE_PATH}/${paymentId}/retry`,
         request
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("PaymentService.retryPayment failed:", error);
-      throw parseApiError(error);
-    }
-  }
-
-  /**
-   * Cancel a pending payment
-   */
-  static async cancelPayment(paymentId: string): Promise<Payment> {
-    try {
-      const response = await httpClient.delete<ApiResponse<Payment>>(
-        `${this.BASE_PATH}/${paymentId}`
-      );
-      return response.data.data;
-    } catch (error: any) {
-      console.error("PaymentService.cancelPayment failed:", error);
       throw parseApiError(error);
     }
   }
@@ -190,7 +168,7 @@ export class PaymentService {
       const response = await httpClient.get<ApiResponse<any>>(
         `${this.BASE_PATH}/statistics`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("PaymentService.getPaymentStatistics failed:", error);
       throw parseApiError(error);

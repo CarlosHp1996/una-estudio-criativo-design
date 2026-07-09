@@ -25,7 +25,6 @@ import { Order } from "@/types/api";
 import { OrderService } from "@/services/orderService";
 import { parseApiError } from "@/lib/errorHandling";
 import { toast } from "sonner";
-import { apiClient } from "@/lib/apiClient";
 import { TrackingWidget } from "@/components/TrackingWidget";
 
 interface Statistics {

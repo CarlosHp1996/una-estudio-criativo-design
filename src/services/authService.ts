@@ -1,5 +1,5 @@
 // Authentication Service - API Integration
-import { httpClient, apiUtils, tokenManager } from "@/lib/httpClient";
+import { httpClient, apiUtils, tokenManager, API_BASE_URL } from "@/lib/httpClient";
 import type {
   LoginRequest,
   RegisterRequest,
@@ -16,7 +16,7 @@ export class AuthService {
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       const response = await fetch(
-        "https://localhost:4242/api/Auth/login", // Revert to working URL
+        `${API_BASE_URL}/Auth/login`, // Revert to working URL
         {
           method: "POST",
           headers: {
@@ -52,7 +52,7 @@ export class AuthService {
           userName: tokenClaims.name || data.value?.name || "User",
           email: tokenClaims.email || "",
           roles: tokenClaims.roles || ["User"],
-          profilePicture: null,
+          profilePicture: tokenClaims.profilePicture || data.value?.profilePicture || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -86,7 +86,7 @@ export class AuthService {
         addresses: null,
       };
 
-      const response = await fetch("https://localhost:4242/api/Auth/create", {
+      const response = await fetch(`${API_BASE_URL}/Auth/create`, {
         method: "POST",
         headers: {
           accept: "text/plain",
@@ -132,7 +132,7 @@ export class AuthService {
   ): Promise<SocialAuthResponse> {
     try {
       const response = await fetch(
-        `https://localhost:4242/api/SocialAuth/${provider}`,
+        `${API_BASE_URL}/SocialAuth/${provider}`,
         {
           method: "POST",
           headers: {
@@ -174,7 +174,7 @@ export class AuthService {
         userName: tokenClaims.name || data.User?.userName || "User",
         email: tokenClaims.email || data.User?.email || "",
         roles: tokenClaims.roles || ["User"],
-        profilePicture: data.User?.profilePicture || null,
+        profilePicture: tokenClaims.profilePicture || data.User?.profilePicture || null,
         createdAt: data.User?.createdAt || new Date().toISOString(),
         updatedAt: data.User?.updatedAt || new Date().toISOString(),
       };
@@ -241,7 +241,7 @@ export class AuthService {
 
       // Send to backend
       const response = await fetch(
-        "https://localhost:4242/api/SocialAuth/google",
+        `${API_BASE_URL}/SocialAuth/google`,
         {
           method: "POST",
           headers: {
@@ -283,7 +283,7 @@ export class AuthService {
         userName: tokenClaims.name || data.User?.userName || "User",
         email: tokenClaims.email || data.User?.email || "",
         roles: tokenClaims.roles || ["User"],
-        profilePicture: data.User?.profilePicture || null,
+        profilePicture: tokenClaims.profilePicture || data.User?.profilePicture || null,
         createdAt: data.User?.createdAt || new Date().toISOString(),
         updatedAt: data.User?.updatedAt || new Date().toISOString(),
       };
@@ -350,7 +350,7 @@ export class AuthService {
 
       // Send to backend
       const response = await fetch(
-        "https://localhost:4242/api/SocialAuth/facebook",
+        `${API_BASE_URL}/SocialAuth/facebook`,
         {
           method: "POST",
           headers: {
@@ -392,7 +392,7 @@ export class AuthService {
         userName: tokenClaims.name || data.User?.userName || "User",
         email: tokenClaims.email || data.User?.email || "",
         roles: tokenClaims.roles || ["User"],
-        profilePicture: data.User?.profilePicture || null,
+        profilePicture: tokenClaims.profilePicture || data.User?.profilePicture || null,
         createdAt: data.User?.createdAt || new Date().toISOString(),
         updatedAt: data.User?.updatedAt || new Date().toISOString(),
       };
@@ -419,21 +419,41 @@ export class AuthService {
     }
   }
 
+  // Upload user avatar
+  static async uploadAvatar(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiUtils.post<any>("/Auth/upload-avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response;
+  }
+
   // Update user profile
-  static async updateProfile(data: UpdateProfileRequest): Promise<User> {
-    const response = await apiUtils.put<User>("/Auth/update", data);
-
-    // Update stored user data
-    if (response) {
-      localStorage.setItem("una_user", JSON.stringify(response));
-    }
-
+  static async updateProfile(data: any): Promise<any> {
+    const response = await apiUtils.put<any>("/Auth/update", data);
     return response;
   }
 
   // Change password
   static async changePassword(data: ChangePasswordRequest): Promise<void> {
     await apiUtils.post<void>("/Auth/change-password", data);
+  }
+
+  // Get fresh user profile data
+  static async getProfile(id: string): Promise<User | null> {
+    try {
+      const response = await apiUtils.get<any>(`/Auth/get/${id}`);
+      if (response && response.hasSuccess && response.value?.user) {
+        return response.value.user as User;
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+      return null;
+    }
   }
 
   // Logout (clear local storage and call logout endpoint)
@@ -482,23 +502,31 @@ export class AuthService {
       const token = tokenManager.getToken();
       if (!token) return null;
 
-      // Always decode token to get fresh user data and roles
+      // Always decode token to get roles and sub (id)
       const tokenClaims = tokenManager.decodeToken(token);
       if (!tokenClaims) return null;
 
+      // Get stored user data which includes fresh profile info after updates
+      const storedUser = this.getStoredUser();
+
       const user: User = {
-        id: tokenClaims.sub || "",
-        userName: tokenClaims.name || "User",
-        email: tokenClaims.email || "",
-        roles: tokenClaims.roles || ["User"],
-        profilePicture: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        id: tokenClaims.sub || storedUser?.id || "",
+        userName: storedUser?.userName || tokenClaims.name || "User",
+        email: storedUser?.email || tokenClaims.email || "",
+        roles: tokenClaims.roles || storedUser?.roles || ["User"],
+        profilePicture: storedUser?.profilePicture || tokenClaims.profilePicture || null,
+        phone: storedUser?.phone || null,
+        cpf: storedUser?.cpf || null,
+        gender: storedUser?.gender || 0,
+        bio: storedUser?.bio || "",
+        addresses: storedUser?.addresses || [],
+        createdAt: storedUser?.createdAt || new Date().toISOString(),
+        updatedAt: storedUser?.updatedAt || new Date().toISOString(),
       };
 
       return user;
     } catch (error) {
-      console.error("Failed to get current user from token:", error);
+      console.error("Failed to get current user:", error);
       return null;
     }
   }

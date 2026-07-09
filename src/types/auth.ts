@@ -111,7 +111,7 @@ export interface AuthContextType {
 
 // Local storage keys
 export const AUTH_STORAGE_KEYS = {
-  TOKEN: "una_auth_token",
-  USER: "una_user_data",
+  TOKEN: "una_token",
+  USER: "una_user",
   REMEMBER_ME: "una_remember_me",
 } as const;

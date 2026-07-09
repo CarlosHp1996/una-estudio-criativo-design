@@ -324,13 +324,64 @@ export interface PaymentResponse {
   message: string;
   approvedAt?: string;
   errorCode?: string;
-  // AbacatePay specific fields
+  // AbacatePay specific fields (fluxo legado, mantido por compatibilidade com AbacatePayment.tsx orfao)
   billingId?: string; // AbacatePay billing ID
   paymentUrl?: string; // URL for PIX/Boleto payment
   pixCode?: string; // PIX code for copying
   pixQrCode?: string; // PIX QR Code image
   boletoUrl?: string; // Boleto PDF URL
   expiresAt?: string; // Payment expiration
+  // Stripe: PaymentIntent.ClientSecret, usado com Stripe Elements para confirmar o pagamento no navegador.
+  clientSecret?: string;
+}
+
+// ---- Fluxo Stripe (PaymentIntents) — contrato real do backend ----
+// POST /payment/create
+export interface CreatePaymentRequest {
+  orderId: string;
+  amount: number;
+  paymentMethod: "card" | "pix";
+  customerName: string;
+  customerDocument?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  returnUrl?: string;
+  metadata?: string;
+}
+
+// value de Result<CreateAbacatePaymentResponse> retornado por POST /payment/create
+export interface CreatePaymentResponse {
+  paymentId: string;
+  billingId?: string;
+  paymentUrl?: string;
+  qrCode?: string;
+  qrCodeImage?: string;
+  status: string;
+  expiresAt?: string;
+  amount: number;
+  devMode: boolean;
+  // PaymentIntent.ClientSecret do Stripe — usado com Stripe Elements/Stripe.js para confirmar
+  // o pagamento (cartao ou PIX) no navegador. Ausente para gateways que nao usam esse fluxo.
+  clientSecret?: string;
+}
+
+// value de Result<PaymentStatusDto> retornado por GET /payment/{id}/status
+export interface PaymentStatusDto {
+  paymentId: string;
+  billingId?: string;
+  status: string;
+  abacateStatus?: string;
+  paymentMethod: string;
+  amount: number;
+  fee?: number;
+  paymentUrl?: string;
+  qrCode?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+  processedAt?: string;
+  errorMessage?: string;
+  devMode?: boolean;
 }
 
 export interface PaymentsResponse {
@@ -368,6 +419,7 @@ export interface UpdateProfileRequest {
   cpf?: string;
   gender?: number;
   addresses?: AddressDto[];
+  profilePicture?: string;
   password?: string;
   isPasswordRecovery?: boolean;
 }
@@ -378,11 +430,18 @@ export interface ChangePasswordRequest {
   confirmNewPassword: string;
 }
 
-// Common API response wrapper
+// Envelope real do backend .NET (Result<T> / ResultValue<T>), serializado em camelCase.
 export interface ApiResponse<T = any> {
-  data: T;
+  value: T;
+  hasSuccess: boolean;
+  count?: number;
   message?: string;
-  success: boolean;
+  errors?: string[];
+  errorMessage?: string;
+  httpStatusCode?: number;
+  // Campos legados mantidos opcionais durante a migração de envelope (não usar em código novo).
+  data?: T;
+  success?: boolean;
 }
 
 // Pagination parameters

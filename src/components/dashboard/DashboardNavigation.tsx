@@ -51,16 +51,16 @@ const navigationItems = [
     description: "Alertas e avisos",
   },
   {
-    title: "Segurança",
-    href: "/dashboard/seguranca",
-    icon: Shield,
-    description: "Senha e privacidade",
-  },
-  {
     title: "Rastreamento",
     href: "/dashboard/rastreamento",
     icon: Truck,
     description: "Acompanhe seus pedidos",
+  },
+  {
+    title: "Segurança",
+    href: "/dashboard/seguranca",
+    icon: Shield,
+    description: "Senha e privacidade",
   },
   {
     title: "Configurações",
@@ -79,8 +79,18 @@ export function DashboardNavigation() {
       {/* Header do usuário */}
       <div className="p-3 border-b border-gray-100 mb-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center text-white font-medium">
-            {user?.userName?.charAt(0).toUpperCase() || "U"}
+          <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden">
+            {user?.profilePicture ? (
+              <img 
+                src={user.profilePicture} 
+                alt={user.userName} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-green-600 flex items-center justify-center text-white font-medium">
+                {user?.userName?.charAt(0).toUpperCase() || "U"}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-900">

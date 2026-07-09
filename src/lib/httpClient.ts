@@ -89,10 +89,14 @@ export const tokenManager = {
   },
 };
 
+// Base da API — fonte única da verdade. Usada pelo axios e pelos serviços que usam fetch.
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "https://localhost:4242/api";
+
 // Create axios instance with default configuration
 const createHttpClient = (): AxiosInstance => {
   const client = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "https://localhost:4242/api",
+    baseURL: API_BASE_URL,
     timeout: 15000, // 15 seconds timeout
     headers: {
       "Content-Type": "application/json",

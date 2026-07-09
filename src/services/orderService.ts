@@ -24,7 +24,7 @@ export class OrderService {
         this.BASE_PATH,
         request
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.createOrder failed:", error);
       throw parseApiError(error);
@@ -52,7 +52,7 @@ export class OrderService {
       const response = await httpClient.get<ApiResponse<OrdersResponse>>(
         `${this.BASE_PATH}?${params.toString()}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.getOrders failed:", error);
       throw parseApiError(error);
@@ -67,7 +67,7 @@ export class OrderService {
       const response = await httpClient.get<ApiResponse<Order>>(
         `${this.BASE_PATH}/${orderId}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.getOrderById failed:", error);
       throw parseApiError(error);
@@ -82,7 +82,7 @@ export class OrderService {
       const response = await httpClient.get<ApiResponse<Order>>(
         `${this.BASE_PATH}/number/${orderNumber}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.getOrderByNumber failed:", error);
       throw parseApiError(error);
@@ -97,7 +97,7 @@ export class OrderService {
       const response = await httpClient.delete<ApiResponse<Order>>(
         `${this.BASE_PATH}/${orderId}`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.cancelOrder failed:", error);
       throw parseApiError(error);
@@ -112,7 +112,7 @@ export class OrderService {
       const response = await httpClient.get<ApiResponse<any[]>>(
         `${this.BASE_PATH}/${orderId}/tracking`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.getOrderTracking failed:", error);
       throw parseApiError(error);
@@ -132,7 +132,7 @@ export class OrderService {
         `${this.BASE_PATH}/${orderId}/status`,
         { status, notes }
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.updateOrderStatus failed:", error);
       throw parseApiError(error);
@@ -154,7 +154,7 @@ export class OrderService {
       const response = await httpClient.get<ApiResponse<any>>(
         `${this.BASE_PATH}/statistics`
       );
-      return response.data.data;
+      return response.data.value;
     } catch (error: any) {
       console.error("OrderService.getOrderStatistics failed:", error);
       throw parseApiError(error);
