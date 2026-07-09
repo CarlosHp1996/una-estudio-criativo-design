@@ -32,7 +32,9 @@ interface AuthContextType {
     socialUser: SocialUser,
   ) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: UpdateProfileRequest) => Promise<void>;
+  // Retorna a resposta crua do backend (envelope Result<UpdateUserResponse>) para que
+  // o chamador possa ler dados atualizados — ex.: o Id de um endereco recem-criado.
+  updateProfile: (data: UpdateProfileRequest) => Promise<any>;
   changePassword: (data: ChangePasswordRequest) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (data: {
@@ -284,7 +286,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   // Update profile function
-  const updateProfile = async (data: UpdateProfileRequest): Promise<void> => {
+  const updateProfile = async (data: UpdateProfileRequest): Promise<any> => {
     dispatch({ type: "SET_LOADING", payload: { loading: true } });
 
     try {
@@ -301,6 +303,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email: updatedBackendUser.email || state.user?.email,
           profilePicture:
             updatedBackendUser.profilePicture || state.user?.profilePicture,
+          // Preserva os enderecos retornados pelo backend (com seus Ids). Sem isso,
+          // um endereco recem-cadastrado sumiria do contexto ate o proximo refresh.
+          addresses:
+            updatedBackendUser.addresses ?? state.user?.addresses ?? [],
           // Use whatever the backend returns, but preserve state for things like roles
           roles: state.user?.roles || ["User"],
         } as User;
@@ -313,6 +319,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Save to localStorage
         localStorage.setItem("una_user", JSON.stringify(newUser));
       }
+
+      // Retorna a resposta crua para o chamador (ex.: Checkout precisa do Id do
+      // endereco recem-criado presente em response.value.user.addresses).
+      return response;
     } catch (error) {
       // Don't call AUTH_FAILURE here as it clears the session
       console.error("Profile update error:", error);

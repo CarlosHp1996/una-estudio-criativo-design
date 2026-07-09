@@ -1,16 +1,34 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/hooks/useAuth";
 import { OrderService } from "@/services/orderService";
 import { PaymentService } from "@/services/paymentService";
 import StripePaymentForm from "@/components/StripePaymentForm";
-import { CreateOrderApiRequest } from "@/types/api";
+import type {
+  AddressDto,
+  CreateOrderApiRequest,
+  UpdateProfileRequest,
+} from "@/types/api";
+import { BRAZIL_STATES, ufToEnumState } from "@/lib/brazilStates";
+import {
+  buildAddressesPayload,
+  formatAddressLine,
+  resolveNewAddressId,
+} from "@/lib/checkoutAddress";
 import { toast } from "sonner";
 
 // Fluxo antigo (AbacatePay) tinha um step "payment" com CreditCardForm (dados de cartão
@@ -18,9 +36,22 @@ import { toast } from "sonner";
 // pelo mesmo fluxo Stripe (StripePaymentForm), então esses steps deixaram de existir.
 type CheckoutStep = "shipping" | "stripe";
 
+// Valor especial do RadioGroup que representa a opção "cadastrar novo endereço".
+const NEW_ADDRESS_OPTION = "__new__";
+
+const emptyNewAddress = {
+  cep: "",
+  street: "",
+  number: "",
+  complement: "",
+  neighborhood: "",
+  city: "",
+  uf: "",
+};
+
 const Checkout = () => {
   const { items, total, clearCart } = useCart();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("shipping");
   const [isLoading, setIsLoading] = useState(false);
@@ -30,15 +61,135 @@ const Checkout = () => {
     name: user?.userName || "",
     email: user?.email || "",
     phone: "",
-    cep: "",
-    street: "",
-    number: "",
-    complement: "",
-    city: "",
-    state: "",
     paymentMethod: "credit",
     notes: "",
   });
+
+  // --- Etapa de endereço ---
+  const savedAddresses = useMemo(
+    () => user?.addresses ?? [],
+    [user?.addresses]
+  );
+  const hasSavedAddresses = savedAddresses.length > 0;
+
+  // Modo de endereço: usar um existente ou cadastrar um novo.
+  const [addressMode, setAddressMode] = useState<"existing" | "new">("new");
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [addressInitialized, setAddressInitialized] = useState(false);
+  const [newAddr, setNewAddr] = useState(emptyNewAddress);
+
+  // Quando os endereços do usuário chegam (o perfil carrega de forma assíncrona),
+  // pré-seleciona o principal (ou o primeiro) e entra no modo "existente".
+  useEffect(() => {
+    if (addressInitialized) return;
+    if (savedAddresses.length > 0) {
+      const main =
+        savedAddresses.find((a) => a.mainAddress) ?? savedAddresses[0];
+      setSelectedAddressId(main.id ?? "");
+      setAddressMode("existing");
+      setAddressInitialized(true);
+    }
+  }, [savedAddresses, addressInitialized]);
+
+  const handleAddressModeChange = (value: string) => {
+    if (value === NEW_ADDRESS_OPTION) {
+      setAddressMode("new");
+    } else {
+      setAddressMode("existing");
+      setSelectedAddressId(value);
+    }
+  };
+
+  const handleNewAddrChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value } = e.target;
+    setNewAddr((prev) => ({ ...prev, [name]: value }));
+  };
+
+  /**
+   * Resolve o `addressId` a ser usado no pedido:
+   *  - modo "existente": devolve o id selecionado;
+   *  - modo "novo": valida o formulário, salva via PUT /Auth/update (reenviando os
+   *    endereços existentes + o novo com Guid.Empty) e extrai o Id do endereço
+   *    recém-criado da resposta.
+   * Retorna null (após exibir um toast) quando não é possível obter um id confiável.
+   */
+  const resolveAddressId = async (): Promise<string | null> => {
+    if (addressMode === "existing") {
+      if (!selectedAddressId) {
+        toast.error("Selecione um endereço de entrega.");
+        return null;
+      }
+      return selectedAddressId;
+    }
+
+    // Modo "novo endereço" — validação dos campos obrigatórios.
+    const cep = newAddr.cep.trim();
+    const street = newAddr.street.trim();
+    const number = newAddr.number.trim();
+    const neighborhood = newAddr.neighborhood.trim();
+    const city = newAddr.city.trim();
+    const uf = newAddr.uf.trim();
+
+    if (!cep || !street || !number || !neighborhood || !city || !uf) {
+      toast.error(
+        "Preencha CEP, rua, número, bairro, cidade e UF do endereço."
+      );
+      return null;
+    }
+
+    const stateValue = ufToEnumState(uf);
+    if (stateValue === undefined) {
+      toast.error("Selecione uma UF válida.");
+      return null;
+    }
+
+    if (!user?.id) {
+      toast.error("Sessão inválida. Faça login novamente.");
+      return null;
+    }
+
+    const previousIds = savedAddresses.map((a) => a.id);
+    const newAddress: AddressDto = {
+      street,
+      number,
+      complement: newAddr.complement.trim() || undefined,
+      neighborhood,
+      city,
+      state: stateValue,
+      zipCode: cep,
+      completName: formData.name.trim() || user.userName,
+      // Se ainda não há nenhum endereço, o novo vira o principal.
+      mainAddress: savedAddresses.length === 0,
+    };
+
+    const payload: UpdateProfileRequest = {
+      id: user.id,
+      addresses: buildAddressesPayload(savedAddresses, newAddress),
+    };
+
+    try {
+      const response = await updateProfile(payload);
+      const returnedAddresses: AddressDto[] =
+        response?.value?.user?.addresses ?? [];
+
+      const newId = resolveNewAddressId(previousIds, returnedAddresses);
+      if (!newId) {
+        toast.error(
+          "Endereço salvo, mas não foi possível confirmá-lo. Tente novamente."
+        );
+        return null;
+      }
+      return newId;
+    } catch (error: any) {
+      console.error("Address save error:", error);
+      toast.error(
+        error?.message || "Não foi possível salvar o endereço. Tente novamente."
+      );
+      return null;
+    }
+  };
 
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,26 +206,22 @@ const Checkout = () => {
       return;
     }
 
-    // O backend (POST /orders/create) exige um AddressId de um endereco JA salvo
-    // no perfil do usuario — nao aceita endereco em texto livre. O formulario de
-    // entrega acima ainda coleta nome/email/telefone (usados no pagamento), mas a
-    // rua/cidade/CEP digitados aqui NAO sao enviados no pedido.
-    // TODO backend/checkout: adicionar selecao/cadastro de endereco (AddressId) neste fluxo.
-    const addressId =
-      user?.addresses?.find((a) => a.mainAddress)?.id ??
-      user?.addresses?.[0]?.id ??
-      "";
-
-    if (!user?.id || !addressId) {
-      toast.error(
-        "Cadastre um endereco no seu perfil antes de finalizar a compra."
-      );
+    if (!user?.id) {
+      toast.error("Sessão inválida. Faça login novamente.");
       return;
     }
 
     setIsLoading(true);
 
     try {
+      // Garante um AddressId de um endereço salvo (o backend POST /orders/create
+      // exige AddressId — não aceita endereço em texto livre).
+      const addressId = await resolveAddressId();
+      if (!addressId) {
+        // resolveAddressId já exibiu o toast apropriado.
+        return;
+      }
+
       const orderRequest: CreateOrderApiRequest = {
         userId: user.id,
         addressId,
@@ -209,6 +356,157 @@ const Checkout = () => {
     </div>
   );
 
+  const renderNewAddressForm = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="cep">CEP *</Label>
+          <Input
+            id="cep"
+            name="cep"
+            value={newAddr.cep}
+            onChange={handleNewAddrChange}
+            placeholder="00000-000"
+          />
+        </div>
+        <div>
+          <Label htmlFor="street">Rua *</Label>
+          <Input
+            id="street"
+            name="street"
+            value={newAddr.street}
+            onChange={handleNewAddrChange}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="number">Número *</Label>
+          <Input
+            id="number"
+            name="number"
+            value={newAddr.number}
+            onChange={handleNewAddrChange}
+          />
+        </div>
+        <div>
+          <Label htmlFor="complement">Complemento</Label>
+          <Input
+            id="complement"
+            name="complement"
+            value={newAddr.complement}
+            onChange={handleNewAddrChange}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="neighborhood">Bairro *</Label>
+        <Input
+          id="neighborhood"
+          name="neighborhood"
+          value={newAddr.neighborhood}
+          onChange={handleNewAddrChange}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="city">Cidade *</Label>
+          <Input
+            id="city"
+            name="city"
+            value={newAddr.city}
+            onChange={handleNewAddrChange}
+          />
+        </div>
+        <div>
+          <Label htmlFor="uf">UF *</Label>
+          <Select
+            value={newAddr.uf}
+            onValueChange={(value) =>
+              setNewAddr((prev) => ({ ...prev, uf: value }))
+            }
+          >
+            <SelectTrigger id="uf">
+              <SelectValue placeholder="Selecione a UF" />
+            </SelectTrigger>
+            <SelectContent>
+              {BRAZIL_STATES.map((s) => (
+                <SelectItem key={s.uf} value={s.uf}>
+                  {s.uf} - {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAddressSection = () => (
+    <div className="space-y-4">
+      <h3 className="font-semibold">Endereço de Entrega</h3>
+
+      {hasSavedAddresses ? (
+        <>
+          <RadioGroup
+            value={
+              addressMode === "existing"
+                ? selectedAddressId
+                : NEW_ADDRESS_OPTION
+            }
+            onValueChange={handleAddressModeChange}
+            className="space-y-2"
+          >
+            {savedAddresses.map((address) => (
+              <label
+                key={address.id}
+                htmlFor={`addr-${address.id}`}
+                className="flex items-start gap-3 border rounded-md p-3 cursor-pointer hover:bg-gray-50"
+              >
+                <RadioGroupItem
+                  value={address.id ?? ""}
+                  id={`addr-${address.id}`}
+                  className="mt-1"
+                />
+                <div className="flex-1 text-sm">
+                  <p className="text-gray-800">{formatAddressLine(address)}</p>
+                  {address.mainAddress && (
+                    <span className="inline-block mt-1 text-xs font-medium text-primary">
+                      Endereço principal
+                    </span>
+                  )}
+                </div>
+              </label>
+            ))}
+
+            <label
+              htmlFor="addr-new"
+              className="flex items-center gap-3 border rounded-md p-3 cursor-pointer hover:bg-gray-50"
+            >
+              <RadioGroupItem value={NEW_ADDRESS_OPTION} id="addr-new" />
+              <span className="text-sm font-medium">Usar um novo endereço</span>
+            </label>
+          </RadioGroup>
+
+          {addressMode === "new" && (
+            <div className="pt-2">{renderNewAddressForm()}</div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-gray-600">
+            Você ainda não tem endereços salvos. Cadastre o endereço de entrega
+            abaixo.
+          </p>
+          {renderNewAddressForm()}
+        </>
+      )}
+    </div>
+  );
+
   const renderShippingForm = () => (
     <div className="max-w-4xl mx-auto p-4">
       <Card className="p-6">
@@ -272,98 +570,35 @@ const Checkout = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cep">CEP</Label>
-                  <Input
-                    id="cep"
-                    name="cep"
-                    value={formData.cep}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-
               <div>
-                <Label htmlFor="street">Rua</Label>
+                <Label htmlFor="phone">Telefone</Label>
                 <Input
-                  id="street"
-                  name="street"
-                  value={formData.street}
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleInputChange}
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="number">Número</Label>
-                  <Input
-                    id="number"
-                    name="number"
-                    value={formData.number}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="complement">Complemento</Label>
-                  <Input
-                    id="complement"
-                    name="complement"
-                    value={formData.complement}
-                    onChange={handleInputChange}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="city">Cidade</Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="state">Estado</Label>
-                  <Input
-                    id="state"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
+              {renderAddressSection()}
 
               <div>
                 <Label htmlFor="paymentMethod">Método de Pagamento</Label>
-                <select
-                  id="paymentMethod"
-                  name="paymentMethod"
+                <Select
                   value={formData.paymentMethod}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded-md"
-                  required
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, paymentMethod: value }))
+                  }
                 >
-                  <option value="credit">Cartão de Crédito</option>
-                  <option value="pix">PIX</option>
-                </select>
+                  <SelectTrigger id="paymentMethod">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credit">Cartão de Crédito</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
