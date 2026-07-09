@@ -272,10 +272,39 @@ export interface Order {
   transactionId?: string;
 }
 
+// LEGADO: shape antigo que NAO bate com o backend real. O backend
+// (CreateOrderRequest.cs) espera { userId, addressId, paymentMethod, items }.
+// Mantido apenas para nao quebrar imports antigos — nao usar em codigo novo.
 export interface CreateOrderRequest {
   shippingAddress: ShippingAddress;
   paymentMethod: string;
   notes?: string;
+}
+
+// Contrato REAL de POST /orders/create (backend CreateOrderRequest / CreateOrderCommand).
+export interface CreateOrderApiRequest {
+  userId: string;
+  addressId: string;
+  paymentMethod: string;
+  items: OrderItemRequest[];
+}
+
+export interface OrderItemRequest {
+  productId: string;
+  quantity: number;
+}
+
+// `.value` real de POST /orders/create (backend CreateOrderResponse).
+// Obs.: NAO e um Order completo (sem items/endereco); status/paymentStatus vem
+// como enum. `orderId` (nao `id`) e `orderNumber` e int no backend.
+export interface CreatedOrder {
+  id: string; // mapeado de orderId
+  orderNumber: string; // mapeado de orderNumber (int no backend)
+  totalAmount: number;
+  status: string | number;
+  paymentStatus: string | number;
+  orderDate: string;
+  isActive?: boolean;
 }
 
 export interface OrdersResponse {

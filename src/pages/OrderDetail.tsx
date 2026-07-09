@@ -71,8 +71,11 @@ const OrderDetail = () => {
 
     try {
       setIsCanceling(true);
-      const updatedOrder = await OrderService.cancelOrder(order.id);
-      setOrder(updatedOrder);
+      // DELETE /orders/delete/{id}: no backend isso remove o pedido e devolve o
+      // estoque (nao retorna o pedido). Atualizamos o estado local para refletir
+      // o cancelamento; o registro nao existe mais no servidor apos esta acao.
+      await OrderService.cancelOrder(order.id);
+      setOrder({ ...order, status: "cancelled" });
       toast.success("Pedido cancelado com sucesso!");
     } catch (error: any) {
       console.error("Failed to cancel order:", error);

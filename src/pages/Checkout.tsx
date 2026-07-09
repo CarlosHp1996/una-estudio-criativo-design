@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { OrderService } from "@/services/orderService";
 import { PaymentService } from "@/services/paymentService";
 import StripePaymentForm from "@/components/StripePaymentForm";
-import { CreateOrderRequest, ShippingAddress } from "@/types/api";
+import { CreateOrderApiRequest } from "@/types/api";
 import { toast } from "sonner";
 
 // Fluxo antigo (AbacatePay) tinha um step "payment" com CreditCardForm (dados de cartão
@@ -55,23 +55,34 @@ const Checkout = () => {
       return;
     }
 
+    // O backend (POST /orders/create) exige um AddressId de um endereco JA salvo
+    // no perfil do usuario — nao aceita endereco em texto livre. O formulario de
+    // entrega acima ainda coleta nome/email/telefone (usados no pagamento), mas a
+    // rua/cidade/CEP digitados aqui NAO sao enviados no pedido.
+    // TODO backend/checkout: adicionar selecao/cadastro de endereco (AddressId) neste fluxo.
+    const addressId =
+      user?.addresses?.find((a) => a.mainAddress)?.id ??
+      user?.addresses?.[0]?.id ??
+      "";
+
+    if (!user?.id || !addressId) {
+      toast.error(
+        "Cadastre um endereco no seu perfil antes de finalizar a compra."
+      );
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const shippingAddress: ShippingAddress = {
-        street: `${formData.street}, ${formData.number}${
-          formData.complement ? `, ${formData.complement}` : ""
-        }`,
-        city: formData.city,
-        state: formData.state,
-        zipCode: formData.cep,
-        country: "Brasil",
-      };
-
-      const orderRequest: CreateOrderRequest = {
-        shippingAddress,
-        paymentMethod: formData.paymentMethod,
-        notes: formData.notes,
+      const orderRequest: CreateOrderApiRequest = {
+        userId: user.id,
+        addressId,
+        paymentMethod: formData.paymentMethod === "pix" ? "pix" : "card",
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
       };
 
       const order = await OrderService.createOrder(orderRequest);
