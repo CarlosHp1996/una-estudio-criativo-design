@@ -205,13 +205,10 @@ export class AuthService {
     await apiUtils.post<void>("/Auth/change-password", data);
   }
 
-  // Envia e-mail de recuperação de senha (backend espera o e-mail via query string)
-  // TODO backend: aceitar email no corpo (POST body) em vez de query string.
+  // Envia e-mail de recuperação de senha. O e-mail vai no corpo (não mais na query string),
+  // evitando vazar o endereço em logs de acesso / histórico de URL.
   static async forgotPassword(email: string): Promise<void> {
-    await apiUtils.post<void>(
-      `/Auth/forgout-password?email=${encodeURIComponent(email)}`,
-      {}
-    );
+    await apiUtils.post<void>("/Auth/forgot-password", { email });
   }
 
   // Redefine a senha usando o token recebido por e-mail (fluxo de recuperação).

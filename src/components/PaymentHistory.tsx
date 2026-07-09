@@ -153,7 +153,7 @@ const PaymentHistory: React.FC = () => {
 
             {payment.billingId && (
               <div>
-                <h3 className="font-medium text-gray-900">ID AbacatePay</h3>
+                <h3 className="font-medium text-gray-900">ID do pagamento</h3>
                 <p className="text-gray-600 font-mono text-sm">
                   {payment.billingId}
                 </p>
